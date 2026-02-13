@@ -124,16 +124,20 @@ export default function KBBuilderPage() {
     setError(null);
 
     try {
-      const response = await fetch("https://api.perplexity.ai/models", {
-        headers: { Authorization: `Bearer ${apiKey.trim()}` },
+      const response = await fetch("/api/validate-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKey.trim() }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (data.valid) {
         setKeyValidated(true);
         return true;
       } else {
         setKeyValidated(false);
-        setError("Invalid API key. Please check your key and try again.");
+        setError(data.error || "Invalid API key. Please check your key and try again.");
         return false;
       }
     } catch {

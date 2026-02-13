@@ -121,37 +121,32 @@ type ProgressCallback = (
 // Helpers
 // ──────────────────────────────────────────────
 
-function extractCitationsFromOutput(
-  output: OutputItem[] | undefined
+function extractCitationsFromResponse(
+  response: ResponseCreateResponse
 ): string[] {
-  if (!output) return [];
-
-  const urls = new Set<string>();
-  for (const item of output) {
-    if (
-      item.type === "message" &&
-      "content" in item &&
-      Array.isArray(item.content)
-    ) {
-      for (const block of item.content) {
-        if (
-          typeof block === "object" &&
-          block !== null &&
-          "type" in block &&
-          block.type === "output_text" &&
-          "text" in block &&
-          typeof block.text === "string"
-        ) {
-          const urlRegex = /https?:\/\/[^\s)"']+/g;
-          const matches = block.text.match(urlRegex);
-          if (matches) {
-            for (const url of matches) urls.add(url);
-          }
-        }
+  // Per spec v4.1: Use citations from API response, not extracted from text
+  // "Use the `citations` or `search_results` fields from the API response."
+  if ("citations" in response && Array.isArray(response.citations)) {
+    return response.citations.filter((c): c is string => typeof c === "string");
+  }
+  
+  // Fallback: extract from search_results if available
+  if ("search_results" in response && Array.isArray(response.search_results)) {
+    const urls = new Set<string>();
+    for (const result of response.search_results) {
+      if (
+        typeof result === "object" &&
+        result !== null &&
+        "url" in result &&
+        typeof result.url === "string"
+      ) {
+        urls.add(result.url);
       }
     }
+    return Array.from(urls);
   }
-  return Array.from(urls);
+  
+  return [];
 }
 
 function clampSourceIndices<T extends { sourceIndices?: number[] }>(
@@ -276,7 +271,7 @@ export async function generateManual(
         }
 
         const parsed = parseGenerationJSON(text);
-        const citations = extractCitationsFromOutput(response.output);
+        const citations = extractCitationsFromResponse(response);
         const sanitized = sanitizeManualIndices(parsed, citations.length);
 
         // Calculate cost (Perplexity pricing: $5/$25 per million tokens)
