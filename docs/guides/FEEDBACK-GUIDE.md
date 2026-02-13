@@ -2,34 +2,99 @@
 
 ## How It Works (Current Implementation)
 
-### What Happens When Users Submit Feedback
+### 1. Section Feedback (Thumbs Up/Down)
 
-1. **User Action**: Clicks 👍 or 👎 on a manual section
-2. **API Call**: POST to `/api/manual/[slug]/feedback`
-3. **Storage**: Saved to in-memory array `feedbackStore[]`
-4. **Logging**: Console log: `[Feedback] {"slug":"figma","helpful":true}`
-5. **Response**: Returns success, UI shows "Thanks!"
+**User Action**: Clicks 👍 or 👎 on a manual section  
+**API Call**: POST to `/api/manual/[slug]/feedback`  
+**Storage**: Blob-persisted via `feedback-store.ts` → `_internal/feedback.json`  
+**Persistence**: Survives server restarts (lazy hydrate on first access, debounced writes)  
+**Rate Limit**: ✅ 10 submissions/hour per IP  
+**Console Log**: ✅ `[Feedback] {"slug":"figma","helpful":true}`
 
-### Limitations
+### 2. Star Ratings (1-5 Stars)
 
-❌ **Data lost on server restart** (in-memory only)  
-❌ **No aggregation or analytics**  
-❌ **No admin dashboard**  
-✅ **Rate limited** (10 submissions/hour per IP)  
-✅ **Logs to console** (can view in terminal/Vercel logs)
+**User Action**: Rates a manual 1-5 stars  
+**API Call**: POST to `/api/manual/[slug]/rate`  
+**Storage**: Blob-persisted → `_internal/ratings.json`  
+**Aggregation**: ✅ Returns average + count per manual  
+**Deduplication**: One rating per session per manual  
+**Query**: GET `/api/manual/[slug]/rate` returns `{average: 4.2, count: 15}`
+
+### 3. User Messages (Bug Reports, Feature Requests)
+
+**User Action**: Submits message via form  
+**API Call**: POST to `/api/feedback/message`  
+**Storage**: Blob-persisted → `_internal/messages.json`  
+**Types**: `feature-request`, `bug-report`, `general`, `manual-feedback`  
+**Optional**: Email, sessionId, slug (for manual-specific feedback)  
+**Limit**: Max 5000 messages (FIFO)
+
+### 4. Admin Dashboard
+
+**Endpoint**: `/api/admin/feedback?key=ADMIN_SECRET`  
+**Auth**: Requires `ADMIN_SECRET` env var (falls back to `CRON_SECRET`, then `"dev-secret"`)  
+**Returns**: All feedback (thumbs), ratings, and messages  
+**Privacy**: IP addresses stripped from response  
+**Delete**: DELETE `/api/admin/feedback?key=ADMIN_SECRET` clears all feedback
 
 ---
 
-## Viewing Feedback (3 Methods)
+## Current Status
 
-### Method 1: Terminal Logs (Development)
+✅ **Persistent storage** (Blob-backed, survives restarts)  
+✅ **Star ratings** with aggregation  
+✅ **User messages** API  
+✅ **Admin endpoint** (secured)  
+✅ **Rate limited** (10/hour per IP)  
+✅ **Console logging**  
+❌ **No frontend UI** for star ratings or messages yet  
+❌ **No admin dashboard UI** (API only)
+
+---
+
+## Viewing Feedback
+
+### Method 1: Admin API Endpoint (Recommended)
+
+**Quick JSON export:**
+```bash
+# PowerShell (with admin secret)
+$env:ADMIN_SECRET = "your-secret-here"
+Invoke-RestMethod "http://localhost:3000/api/admin/feedback?key=$env:ADMIN_SECRET" | ConvertTo-Json -Depth 10 | Out-File feedback-export.json
+
+# Or curl
+curl "http://localhost:3000/api/admin/feedback?key=your-secret" > feedback-export.json
+```
+
+**Returns:**
+```json
+{
+  "feedback": [
+    {"slug": "figma", "helpful": true, "sectionType": "feature", ...}
+  ],
+  "ratings": [
+    {"slug": "notion", "rating": 5, "sessionId": "...", "createdAt": "..."}
+  ],
+  "messages": [
+    {"type": "bug-report", "message": "...", "email": "user@example.com"}
+  ],
+  "stats": {
+    "totalFeedback": 42,
+    "helpfulCount": 35,
+    "notHelpfulCount": 7,
+    "totalRatings": 15,
+    "totalMessages": 3
+  }
+}
+```
+
+### Method 2: Terminal Logs (Development)
 
 **While `npm run dev` is running**, watch for:
 
 ```bash
 [Feedback] {"slug":"figma","helpful":true}
-[Feedback] {"slug":"notion","helpful":false}
-[Feedback] {"slug":"figma","helpful":true}
+[BlobPersistence] Hydrated 42 feedback entries from Blob
 ```
 
 **To search logs**:
@@ -37,223 +102,194 @@
 npm run dev 2>&1 | Select-String "\[Feedback\]"
 ```
 
-### Method 2: Vercel Function Logs (Production)
+### Method 3: Vercel Function Logs (Production)
 
 1. Deploy to Vercel
 2. Go to: Vercel Dashboard → Your Project → Logs
-3. Filter by: "Feedback"
+3. Filter by: "Feedback" or "BlobPersistence"
 4. See all feedback submissions with timestamps
 
-### Method 3: Export from Terminal (Manual)
+### Method 4: Direct Blob Access (Advanced)
 
-While dev server is running, grep logs:
+Feedback is stored in Vercel Blob at:
+- `_internal/feedback.json` (thumbs up/down)
+- `_internal/ratings.json` (star ratings)
+- `_internal/messages.json` (user messages)
 
+Access via Vercel Dashboard → Storage → Blob → Browse files
+
+---
+
+## For Internal Testing
+
+You have persistent feedback now, so all data is saved. Here's how to review it:
+
+### Quick Daily Check
 ```bash
-# PowerShell
-Get-Content output.log | Select-String "\[Feedback\]" | Out-File feedback.txt
+# Export all feedback to JSON
+curl "http://localhost:3000/api/admin/feedback?key=dev-secret" | jq . > daily-$(date +%Y%m%d).json
+```
 
-# Or just copy from terminal
+### Parse Specific Data
+```bash
+# Get all star ratings
+curl "http://localhost:3000/api/admin/feedback?key=dev-secret" | jq '.ratings'
+
+# Get all bug reports
+curl "http://localhost:3000/api/admin/feedback?key=dev-secret" | jq '.messages[] | select(.type=="bug-report")'
+
+# Summary stats
+curl "http://localhost:3000/api/admin/feedback?key=dev-secret" | jq '.stats'
+```
+
+### Watch Live Feedback (Terminal)
+```bash
+npm run dev 2>&1 | Select-String "\[Feedback\]"
 ```
 
 ---
 
-## For Internal Testing (Current Approach)
+## Next Steps (Frontend UI)
 
-Since you have 5-10 internal testers:
+The backend is complete. To make this user-facing:
 
-### Quick & Manual
-1. Keep terminal visible while testing
-2. Watch for `[Feedback]` logs in real-time
-3. Copy interesting entries to a doc
-4. Ask testers: "What did you click thumbs down on?"
+### 1. Add Star Rating Component (15 min)
 
-### Slightly Better (5 min setup)
-1. Redirect logs to file:
-   ```bash
-   npm run dev > dev.log 2>&1
-   ```
-2. In another terminal, tail the log:
-   ```bash
-   Get-Content dev.log -Wait | Select-String "\[Feedback\]"
-   ```
-3. At end of day, extract all feedback:
-   ```bash
-   Select-String "\[Feedback\]" dev.log | Out-File daily-feedback.txt
-   ```
-
----
-
-## Upgrading to Persistent Storage
-
-If you want to save feedback permanently, here are options:
-
-### Option 1: Vercel KV (Redis) - 15 min setup
-
-**Pros**: Fast, free tier generous, perfect for MVP  
-**Cons**: Need to refactor feedback route
-
-**Setup**:
-1. Vercel Dashboard → Storage → Create KV Database
-2. Copy `KV_REST_API_URL` and `KV_REST_API_TOKEN`
-3. Add to `.env.local`
-4. Install: `npm install @vercel/kv`
-5. Update feedback route:
+In `ManualContent.tsx`, add a star rating component at the top of the page:
 
 ```typescript
-import { kv } from '@vercel/kv';
+import { Star } from "lucide-react";
 
-// Replace feedbackStore.push(entry) with:
-await kv.lpush(`feedback:${slug}`, JSON.stringify(entry));
+const [rating, setRating] = useState<number | null>(null);
+const [hover, setHover] = useState<number | null>(null);
 
-// View all feedback:
-const allFeedback = await kv.lrange('feedback:*', 0, -1);
-```
-
-### Option 2: Vercel Postgres - 20 min setup
-
-**Pros**: SQL queries, proper analytics, CSV export  
-**Cons**: More complex, overkill for MVP
-
-**Setup**:
-1. Vercel Dashboard → Storage → Create Postgres Database
-2. Install: `npm install @vercel/postgres`
-3. Create table:
-```sql
-CREATE TABLE feedback (
-  id SERIAL PRIMARY KEY,
-  slug VARCHAR(255),
-  helpful BOOLEAN,
-  section_type VARCHAR(100),
-  section_id VARCHAR(255),
-  ip VARCHAR(50),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-### Option 3: Posthog (Recommended for MVP) - 10 min
-
-**Pros**: Analytics + feedback, free tier generous, no backend changes  
-**Cons**: External service
-
-**Setup**:
-1. Sign up: https://posthog.com (free)
-2. Install: `npm install posthog-js`
-3. In `ManualContent.tsx`:
-```typescript
-import posthog from 'posthog-js';
-
-// Initialize once
-useEffect(() => {
-  posthog.init('YOUR_KEY', { api_host: 'https://app.posthog.com' });
-}, []);
-
-// In SectionFeedback component:
-const send = async (helpful: boolean) => {
-  posthog.capture('feedback_submitted', {
-    slug,
-    helpful,
-    sectionType,
-    sectionId
+const handleRate = async (stars: number) => {
+  const res = await fetch(`/api/manual/${slug}/rate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ 
+      rating: stars, 
+      sessionId: getOrCreateSessionId() 
+    }),
   });
-  // ... rest of code
+  const data = await res.json();
+  setRating(stars);
+  setAverageRating(data.average);
+  setRatingCount(data.count);
+};
+
+// UI: 5 clickable stars
+<div className="flex gap-1">
+  {[1,2,3,4,5].map(n => (
+    <Star 
+      key={n}
+      className={`cursor-pointer ${(hover || rating) >= n ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+      onMouseEnter={() => setHover(n)}
+      onMouseLeave={() => setHover(null)}
+      onClick={() => handleRate(n)}
+    />
+  ))}
+  <span className="text-sm text-gray-500">
+    {averageRating.toFixed(1)} ({ratingCount} ratings)
+  </span>
+</div>
+```
+
+### 2. Add User Message Form (30 min)
+
+Create a "Report an Issue" button that opens a modal:
+
+```typescript
+const [showMessageForm, setShowMessageForm] = useState(false);
+const [messageType, setMessageType] = useState<"bug-report" | "feature-request" | "manual-feedback">("manual-feedback");
+const [message, setMessage] = useState("");
+const [email, setEmail] = useState("");
+
+const handleSubmitMessage = async () => {
+  await fetch("/api/feedback/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      slug,
+      type: messageType,
+      message,
+      email: email || undefined,
+      sessionId: getOrCreateSessionId(),
+    }),
+  });
+  setShowMessageForm(false);
+  toast.success("Thanks for your feedback!");
 };
 ```
 
-4. View in Posthog dashboard: Events → `feedback_submitted`
+### 3. Build Admin Dashboard (1-2 hours)
+
+Create `/admin/feedback` page with protected route:
+
+```typescript
+// Check ADMIN_SECRET on page load
+const [data, setData] = useState(null);
+
+useEffect(() => {
+  const secret = prompt("Enter admin secret:");
+  fetch(`/api/admin/feedback?key=${secret}`)
+    .then(r => r.json())
+    .then(setData);
+}, []);
+
+// Display tables:
+// - Feedback by manual (thumbs up/down counts)
+// - Star ratings histogram
+// - Recent messages with filters
+```
 
 ---
 
 ## Recommendation by Stage
 
 ### Week 1-2 (Internal Testing - YOU ARE HERE)
-✅ **Terminal logs are fine**
-- 5-10 testers
-- Watch logs in real-time
-- Qualitative feedback via Slack/email matters more
+✅ **Backend complete** (blob persistence, all APIs work)  
+🔨 **Add star rating UI** (15 min) - improves UX  
+📋 **Terminal logs + API exports** - sufficient for 5-10 testers
 
 ### Week 3-8 (Beta Testing)
-📈 **Add Posthog or Mixpanel**
-- 50-500 testers
-- Need to see trends: "Which features get 👎?"
-- Funnel: Generation → View → Feedback
-- 10 min setup, huge insight gain
+🔨 **Build admin dashboard** (1-2 hours)  
+📊 **Add message form UI** (30 min)  
+📈 **Optional: Add Posthog/Mixpanel** for funnel analytics
 
 ### Month 3+ (Production)
-🗄️ **Migrate to Postgres or KV**
-- 1000+ users
-- Custom admin dashboard
-- SQL queries: "Show me all negative feedback on shortcuts"
-- Export to CSV for deeper analysis
+🎨 **Polish admin dashboard**  
+📧 **Email notifications** for bug reports  
+📊 **Automated weekly reports**
 
 ---
 
-## Quick Wins
+## Current Implementation Status
 
-### Add Timestamp Display (Client-Side)
-
-Users want to know when they clicked feedback? Add local time:
-
-```typescript
-const [feedbackTime, setFeedbackTime] = useState<string | null>(null);
-
-const send = async (helpful: boolean) => {
-  // ... existing code
-  setFeedbackTime(new Date().toLocaleTimeString());
-};
-
-// In UI:
-{feedbackSent !== null && (
-  <span className="text-xs text-slate-400">
-    Thanks! ({feedbackTime})
-  </span>
-)}
-```
-
-### Add Section-Level Aggregation (No Backend)
-
-Show users how others voted:
-
-```typescript
-// In ManualContent, fetch aggregate:
-const [feedbackStats, setFeedbackStats] = useState({ helpful: 0, notHelpful: 0 });
-
-useEffect(() => {
-  // Fetch from your backend (if you add aggregation)
-  fetch(`/api/manual/${slug}/feedback/stats?section=${sectionId}`)
-    .then(r => r.json())
-    .then(data => setFeedbackStats(data));
-}, []);
-
-// Display: "👍 12  👎 3"
-```
-
----
-
-## Current Status
-
-**Implementation**: In-memory array with console logging  
-**Viewing**: Terminal logs only  
-**Persistence**: None (resets on restart)  
-**Good for**: 1-2 weeks internal testing  
-**Upgrade when**: Moving to beta (50+ testers)
+✅ **Blob persistence** - All feedback saved permanently  
+✅ **Star ratings API** - Backend complete  
+✅ **User messages API** - Backend complete  
+✅ **Admin API endpoint** - GET/DELETE with auth  
+✅ **Rate limiting** - 10/hour per IP  
+✅ **Privacy** - IPs stripped in admin response  
+❌ **Star rating UI** - Not implemented yet  
+❌ **Message form UI** - Not implemented yet  
+❌ **Admin dashboard UI** - API-only, no visual dashboard  
 
 ---
 
 ## Actions for You
 
-For internal testing phase:
+**Immediate (this week):**
+1. ✅ Test admin API: `curl "http://localhost:3000/api/admin/feedback?key=dev-secret"`
+2. 🔨 Add star rating UI to manual pages (15 min)
+3. ✅ Share with internal testers, collect feedback via API
 
-1. ✅ **Keep current implementation** (no changes needed)
-2. ✅ **Watch terminal logs** when testers use the app
-3. ✅ **Ask testers directly**: "What confused you?"
-4. ⏰ **Week 3**: Add Posthog if you need trend data
+**Next 1-2 weeks:**
+1. 🔨 Build simple admin dashboard page (2 hours)
+2. 🔨 Add "Report Issue" button with message form (30 min)
 
-For future (beta/production):
-
-1. ⏰ **Week 3**: Install Posthog (10 min)
-2. ⏰ **Month 2**: Migrate to Vercel KV if you need export (15 min)
-3. ⏰ **Month 3+**: Build admin dashboard with Postgres
-
----
-
-**Bottom Line**: For 5-10 internal testers over 1-2 weeks, terminal logs are sufficient. Focus on talking to users, not building analytics infrastructure.
+**Future (month 2+):**
+1. Add email notifications for messages
+2. Weekly automated reports
+3. Trending/popular manuals based on ratings
