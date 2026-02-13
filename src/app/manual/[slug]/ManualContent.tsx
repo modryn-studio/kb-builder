@@ -22,6 +22,8 @@ import {
   Download,
   History,
   X,
+  Send,
+  MessageSquare,
 } from "lucide-react";
 import type { InstructionManual } from "@/lib/schema";
 
@@ -239,6 +241,279 @@ function TableOfContents({
 }
 
 // ──────────────────────────────────────────────
+// Star Rating Widget
+// ──────────────────────────────────────────────
+
+function StarRatingWidget({
+  slug,
+}: {
+  slug: string;
+}) {
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [average, setAverage] = useState(0);
+  const [count, setCount] = useState(0);
+
+  // Fetch existing rating stats on mount
+  useEffect(() => {
+    fetch(`/api/manual/${slug}/rate`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setAverage(data.average || 0);
+          setCount(data.count || 0);
+        }
+      })
+      .catch(() => {});
+  }, [slug]);
+
+  const submitRating = async (value: number) => {
+    setRating(value);
+    setSubmitted(true);
+    try {
+      let sessionId = "";
+      if (typeof window !== "undefined") {
+        sessionId = localStorage.getItem("kb_session_id") || crypto.randomUUID();
+        localStorage.setItem("kb_session_id", sessionId);
+      }
+      const res = await fetch(`/api/manual/${slug}/rate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: value, sessionId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAverage(data.average || value);
+        setCount(data.count || 1);
+      }
+    } catch {
+      // best-effort
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => !submitted && submitRating(star)}
+            onMouseEnter={() => !submitted && setHover(star)}
+            onMouseLeave={() => !submitted && setHover(0)}
+            disabled={submitted}
+            className="p-0.5 transition-transform hover:scale-110 disabled:cursor-default"
+            title={submitted ? `You rated ${rating}/5` : `Rate ${star}/5`}
+          >
+            <Star
+              className={`h-5 w-5 transition-colors ${
+                star <= (hover || rating)
+                  ? "fill-yellow-400 text-yellow-400"
+                  : star <= Math.round(average) && !hover && !rating
+                    ? "fill-yellow-200 text-yellow-300"
+                    : "text-slate-300"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      {count > 0 && (
+        <span className="text-sm text-slate-500">
+          {average.toFixed(1)} ({count} {count === 1 ? "rating" : "ratings"})
+        </span>
+      )}
+      {submitted && (
+        <span className="text-sm text-green-600">Thanks!</span>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Feedback Message Modal
+// ──────────────────────────────────────────────
+
+const MESSAGE_TYPES = [
+  { value: "manual-feedback", label: "Manual Feedback", description: "About this specific manual" },
+  { value: "bug-report", label: "Bug Report", description: "Something isn't working" },
+  { value: "feature-request", label: "Feature Request", description: "Suggest an improvement" },
+  { value: "general", label: "General", description: "Anything else" },
+] as const;
+
+function FeedbackModal({
+  slug,
+  onClose,
+}: {
+  slug: string;
+  onClose: () => void;
+}) {
+  const [type, setType] = useState<string>("manual-feedback");
+  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+
+    setSending(true);
+    setError("");
+    try {
+      let sessionId: string | undefined;
+      if (typeof window !== "undefined") {
+        sessionId = localStorage.getItem("kb_session_id") || undefined;
+      }
+
+      const res = await fetch("/api/feedback/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          type,
+          message: message.trim(),
+          email: email.trim() || undefined,
+          sessionId,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to send");
+      }
+
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send feedback");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  if (sent) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+        <div className="w-full max-w-md rounded-xl border bg-white p-8 text-center shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+            <Check className="h-6 w-6 text-green-600" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">Feedback Sent!</h3>
+          <p className="mt-2 text-sm text-slate-600">Thanks for helping us improve.</p>
+          <button
+            onClick={onClose}
+            className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-xl border bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <h3 className="text-lg font-bold text-slate-900">Send Feedback</h3>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Type selector */}
+          <div className="grid grid-cols-2 gap-2">
+            {MESSAGE_TYPES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setType(t.value)}
+                className={`rounded-lg border-2 p-3 text-left transition ${
+                  type === t.value
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <div className="text-sm font-medium text-slate-900">{t.label}</div>
+                <div className="text-xs text-slate-500">{t.description}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Message */}
+          <div>
+            <label htmlFor="fb-message" className="block text-sm font-medium text-slate-700 mb-1">
+              Message
+            </label>
+            <textarea
+              id="fb-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Tell us what's on your mind..."
+              rows={4}
+              maxLength={5000}
+              required
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <div className="mt-1 text-right text-xs text-slate-400">{message.length}/5000</div>
+          </div>
+
+          {/* Email (optional) */}
+          <div>
+            <label htmlFor="fb-email" className="block text-sm font-medium text-slate-700 mb-1">
+              Email <span className="text-slate-400 font-normal">(optional, for follow-up)</span>
+            </label>
+            <input
+              id="fb-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={sending || !message.trim()}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Send className="h-4 w-4" />
+              {sending ? "Sending..." : "Send Feedback"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
 // Main Component
 // ──────────────────────────────────────────────
 
@@ -251,6 +526,7 @@ export default function ManualContent({
   const [copied, setCopied] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
   const [showVersions, setShowVersions] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [versions, setVersions] = useState<Array<{ version: string; uploadedAt: string; url: string }>>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -500,6 +776,14 @@ export default function ManualContent({
             <History className="h-3.5 w-3.5" />
             {loadingVersions ? "Loading..." : "Versions"}
           </button>
+          <button
+            onClick={() => setShowFeedbackModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+            title="Send feedback or report an issue"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            Feedback
+          </button>
         </div>
       </header>
 
@@ -580,6 +864,11 @@ export default function ManualContent({
           <p className="mt-2 text-lg text-slate-600">
             {manual.overview.whatItIs}
           </p>
+
+          {/* Star Rating */}
+          <div className="mt-3">
+            <StarRatingWidget slug={manual.slug} />
+          </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {manual.overview.platforms.map((p) => (
@@ -1036,6 +1325,15 @@ export default function ManualContent({
               </button>
             </div>
           )}
+          <div className="mt-4 border-t pt-4">
+            <button
+              onClick={() => setShowFeedbackModal(true)}
+              className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Report an issue or send detailed feedback
+            </button>
+          </div>
         </div>
 
         {/* Metadata */}
@@ -1046,6 +1344,11 @@ export default function ManualContent({
       </main>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <FeedbackModal slug={manual.slug} onClose={() => setShowFeedbackModal(false)} />
+      )}
     </div>
   );
 }

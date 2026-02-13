@@ -3,6 +3,7 @@ import { createJob, checkJobRateLimit, getQueuePosition } from "@/lib/db";
 import { getLatestManual } from "@/lib/storage";
 import { sanitizeToolName, sanitizeSlug, isValidSlug } from "@/lib/utils";
 import { isValidSessionId } from "@/lib/session";
+import { validateToolName } from "@/lib/validate-tool";
 
 export const runtime = "nodejs";
 
@@ -52,6 +53,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Pre-validate tool name (cheap sonar call ~$0.001) ──
+    const validation = await validateToolName(toolName);
+    if (!validation.valid) {
+      return NextResponse.json(
+        {
+          error: `"${toolName}" doesn't appear to be a recognized software tool or website.`,
+          code: "INVALID_TOOL",
+          reason: validation.reason,
+        },
+        { status: 422 }
+      );
+    }
+
+    // Use the normalized name if the validator improved it
+    const finalToolName = validation.normalizedName || toolName;
+    const finalSlug = sanitizeSlug(finalToolName);
+    const effectiveSlug = isValidSlug(finalSlug) ? finalSlug : slug;
+
     // ── Rate limit ──
     const { allowed, retryAfterMs } = await checkJobRateLimit(sessionId);
     if (!allowed) {
@@ -66,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     // ── Check cache (30 days) ──
     if (!forceRefresh) {
-      const cached = await getLatestManual(slug);
+      const cached = await getLatestManual(effectiveSlug);
       if (cached) {
         const generatedAt = new Date(cached.generatedAt).getTime();
         const age = Date.now() - generatedAt;
@@ -75,10 +94,10 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({
             cached: true,
             id: "cached",
-            tool: toolName,
-            slug,
+            tool: finalToolName,
+            slug: effectiveSlug,
             status: "completed",
-            shareableUrl: `${baseUrl}/manual/${slug}`,
+            shareableUrl: `${baseUrl}/manual/${effectiveSlug}`,
             summary: {
               features: cached.features.length,
               shortcuts: cached.shortcuts.length,
@@ -96,8 +115,8 @@ export async function POST(request: NextRequest) {
 
     // ── Create job ──
     const job = await createJob({
-      toolName,
-      slug,
+      toolName: finalToolName,
+      slug: effectiveSlug,
       sessionId,
     });
 

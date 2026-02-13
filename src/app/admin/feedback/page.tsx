@@ -1,14 +1,29 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { CheckCircle, XCircle, Download, Trash2, RefreshCw } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  Download,
+  Trash2,
+  RefreshCw,
+  Star,
+  MessageSquare,
+  ThumbsUp,
+  Lock,
+  LogOut,
+  Filter,
+} from "lucide-react";
+
+// ──────────────────────────────────────────────
+// Types (matching API response shape)
+// ──────────────────────────────────────────────
 
 interface FeedbackEntry {
   slug: string;
   helpful: boolean;
   sectionType?: string;
   sectionId?: string;
-  ip: string;
   createdAt: string;
 }
 
@@ -20,65 +35,222 @@ interface FeedbackStats {
   entries: number;
 }
 
-interface FeedbackResponse {
+interface RatingStats {
+  average: number;
+  count: number;
+}
+
+interface UserMessage {
+  id: string;
+  slug?: string;
+  type: "feature-request" | "bug-report" | "general" | "manual-feedback";
+  message: string;
+  email?: string;
+  sessionId?: string;
+  createdAt: string;
+}
+
+interface AdminResponse {
   stats: FeedbackStats;
+  ratings: Record<string, RatingStats>;
+  messages: UserMessage[];
   feedback: FeedbackEntry[];
   note: string;
 }
 
+type Tab = "overview" | "feedback" | "ratings" | "messages";
+
+// ──────────────────────────────────────────────
+// Message Type Badge
+// ──────────────────────────────────────────────
+
+const TYPE_COLORS: Record<string, string> = {
+  "feature-request": "bg-purple-100 text-purple-700",
+  "bug-report": "bg-red-100 text-red-700",
+  "general": "bg-slate-100 text-slate-700",
+  "manual-feedback": "bg-blue-100 text-blue-700",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  "feature-request": "Feature Request",
+  "bug-report": "Bug Report",
+  "general": "General",
+  "manual-feedback": "Manual Feedback",
+};
+
+function TypeBadge({ type }: { type: string }) {
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[type] || "bg-slate-100 text-slate-600"}`}>
+      {TYPE_LABELS[type] || type}
+    </span>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Star display
+// ──────────────────────────────────────────────
+
+function StarDisplay({ average, count }: { average: number; count: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <Star
+            key={s}
+            className={`h-4 w-4 ${
+              s <= Math.round(average)
+                ? "fill-yellow-400 text-yellow-400"
+                : "text-slate-300"
+            }`}
+          />
+        ))}
+      </div>
+      <span className="text-sm font-medium text-slate-700">{average.toFixed(1)}</span>
+      <span className="text-xs text-slate-500">({count})</span>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Main Page
+// ──────────────────────────────────────────────
+
 export default function AdminFeedbackPage() {
-  const [data, setData] = useState<FeedbackResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("");
+  const [adminKey, setAdminKey] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [data, setData] = useState<AdminResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [slugFilter, setSlugFilter] = useState("");
+  const [messageTypeFilter, setMessageTypeFilter] = useState<string>("all");
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  const fetchFeedback = useCallback(async () => {
+  // Persist key in sessionStorage
+  useEffect(() => {
+    const saved = sessionStorage.getItem("admin_key");
+    if (saved) {
+      setAdminKey(saved);
+      setAuthenticated(true);
+    }
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    if (!adminKey) return;
     try {
-      const url = filter 
-        ? `/api/admin/feedback?slug=${encodeURIComponent(filter)}`
-        : "/api/admin/feedback";
+      const url = slugFilter
+        ? `/api/admin/feedback?key=${encodeURIComponent(adminKey)}&slug=${encodeURIComponent(slugFilter)}`
+        : `/api/admin/feedback?key=${encodeURIComponent(adminKey)}`;
       const res = await fetch(url);
+
+      if (res.status === 401) {
+        setAuthError("Invalid admin key");
+        setAuthenticated(false);
+        sessionStorage.removeItem("admin_key");
+        return;
+      }
+
       const json = await res.json();
       setData(json);
+      setAuthenticated(true);
+      setAuthError("");
+      sessionStorage.setItem("admin_key", adminKey);
     } catch (error) {
-      console.error("Failed to fetch feedback:", error);
+      console.error("Failed to fetch:", error);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [adminKey, slugFilter]);
 
   useEffect(() => {
-    fetchFeedback();
-  }, [fetchFeedback]);
+    if (authenticated && adminKey) {
+      setLoading(true);
+      fetchData();
+    }
+  }, [authenticated, adminKey, fetchData]);
 
   useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(fetchFeedback, 5000); // Refresh every 5s
+    if (!autoRefresh || !authenticated) return;
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
-  }, [autoRefresh, fetchFeedback]);
+  }, [autoRefresh, authenticated, fetchData]);
 
-  const downloadCSV = async () => {
-    const url = filter
-      ? `/api/admin/feedback?format=csv&slug=${encodeURIComponent(filter)}`
-      : "/api/admin/feedback?format=csv";
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminKey.trim()) return;
+    setAuthenticated(true);
+    setLoading(true);
+  };
+
+  const handleLogout = () => {
+    setAuthenticated(false);
+    setAdminKey("");
+    setData(null);
+    sessionStorage.removeItem("admin_key");
+  };
+
+  const downloadCSV = () => {
+    const url = slugFilter
+      ? `/api/admin/feedback?key=${encodeURIComponent(adminKey)}&format=csv&slug=${encodeURIComponent(slugFilter)}`
+      : `/api/admin/feedback?key=${encodeURIComponent(adminKey)}&format=csv`;
     window.open(url, "_blank");
   };
 
   const clearFeedback = async () => {
-    if (!confirm("Clear all feedback entries? This cannot be undone.")) return;
-    
+    if (!confirm("Clear ALL feedback entries? This cannot be undone.")) return;
     try {
-      await fetch("/api/admin/feedback", { method: "DELETE" });
-      fetchFeedback();
+      await fetch(`/api/admin/feedback?key=${encodeURIComponent(adminKey)}`, { method: "DELETE" });
+      fetchData();
     } catch (error) {
-      console.error("Failed to clear feedback:", error);
+      console.error("Failed to clear:", error);
     }
   };
 
-  if (loading) {
+  // ── Auth screen ──
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="bg-white rounded-xl border shadow-sm p-8">
+            <div className="flex items-center justify-center mb-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+                <Lock className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 text-center mb-2">Admin Dashboard</h1>
+            <p className="text-sm text-slate-500 text-center mb-6">Enter your admin secret to continue</p>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <input
+                type="password"
+                value={adminKey}
+                onChange={(e) => setAdminKey(e.target.value)}
+                placeholder="Admin secret key"
+                autoFocus
+                required
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              />
+              {authError && (
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{authError}</div>
+              )}
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+              >
+                Sign In
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Loading ──
+  if (loading && !data) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-600">Loading feedback...</div>
+        <div className="text-slate-600">Loading dashboard...</div>
       </div>
     );
   }
@@ -86,173 +258,370 @@ export default function AdminFeedbackPage() {
   if (!data) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-red-600">Failed to load feedback</div>
+        <div className="text-red-600">Failed to load data</div>
       </div>
     );
   }
 
-  const { stats, feedback, note } = data;
+  const { stats, feedback, ratings, messages } = data;
+
+  const totalRatings = Object.values(ratings).reduce((acc, r) => acc + r.count, 0);
+  const overallAvg = totalRatings > 0
+    ? Object.values(ratings).reduce((acc, r) => acc + r.average * r.count, 0) / totalRatings
+    : 0;
+
+  const filteredMessages = messageTypeFilter === "all"
+    ? messages
+    : messages.filter((m) => m.type === messageTypeFilter);
+
+  const tabs: { id: Tab; label: string; count: number; icon: React.ReactNode }[] = [
+    { id: "overview", label: "Overview", count: 0, icon: <ThumbsUp className="h-4 w-4" /> },
+    { id: "feedback", label: "Thumbs", count: stats.total, icon: <CheckCircle className="h-4 w-4" /> },
+    { id: "ratings", label: "Ratings", count: totalRatings, icon: <Star className="h-4 w-4" /> },
+    { id: "messages", label: "Messages", count: messages.length, icon: <MessageSquare className="h-4 w-4" /> },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Feedback Dashboard
-          </h1>
-          <p className="text-slate-600">{note}</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-            <div className="text-sm text-slate-600 mb-1">Total Feedback</div>
-            <div className="text-3xl font-bold text-slate-900">{stats.total}</div>
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="border-b bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Feedback Dashboard</h1>
+            <p className="text-sm text-slate-500">{data.note}</p>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-            <div className="text-sm text-slate-600 mb-1">Helpful 👍</div>
-            <div className="text-3xl font-bold text-green-600">{stats.helpful}</div>
-            <div className="text-xs text-slate-500 mt-1">
-              {stats.total > 0 ? Math.round((stats.helpful / stats.total) * 100) : 0}%
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-            <div className="text-sm text-slate-600 mb-1">Not Helpful 👎</div>
-            <div className="text-3xl font-bold text-red-600">{stats.notHelpful}</div>
-            <div className="text-xs text-slate-500 mt-1">
-              {stats.total > 0 ? Math.round((stats.notHelpful / stats.total) * 100) : 0}%
-            </div>
-          </div>
-        </div>
-
-        {/* By Manual Stats */}
-        {Object.keys(stats.bySlug).length > 0 && (
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 mb-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">
-              Feedback by Manual
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(stats.bySlug).map(([slug, counts]) => (
-                <button
-                  key={slug}
-                  onClick={() => setFilter(filter === slug ? "" : slug)}
-                  className={`text-left p-4 rounded-lg border-2 transition ${
-                    filter === slug
-                      ? "border-purple-500 bg-purple-50"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="font-semibold text-slate-900 mb-2">{slug}</div>
-                  <div className="flex gap-4 text-sm">
-                    <span className="text-green-600">👍 {counts.helpful}</span>
-                    <span className="text-red-600">👎 {counts.notHelpful}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-            {filter && (
-              <button
-                onClick={() => setFilter("")}
-                className="mt-4 text-sm text-purple-600 hover:text-purple-700"
-              >
-                Clear filter
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Controls */}
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 mb-6">
-          <div className="flex flex-wrap gap-3 items-center">
-            <button
-              onClick={fetchFeedback}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
-            
-            <button
-              onClick={downloadCSV}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition"
-            >
-              <Download size={16} />
-              Download CSV
-            </button>
-
-            <button
-              onClick={clearFeedback}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-            >
-              <Trash2 size={16} />
-              Clear All
-            </button>
-
-            <label className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
                 className="rounded"
               />
-              <span className="text-sm text-slate-600">Auto-refresh (5s)</span>
+              <span className="text-sm text-slate-600">Auto-refresh</span>
             </label>
+            <button
+              onClick={fetchData}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </button>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign Out
+            </button>
           </div>
         </div>
+      </header>
 
-        {/* Feedback List */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-          <div className="p-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Recent Feedback ({feedback.length})
-            </h2>
-          </div>
+      <div className="mx-auto max-w-7xl px-6 py-6">
+        {/* Tabs */}
+        <div className="mb-6 flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                activeTab === tab.id
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+              {tab.count > 0 && (
+                <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs">{tab.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
 
-          {feedback.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">
-              No feedback yet. Generate a manual and submit feedback to see it here.
+        {/* ─── Overview Tab ─── */}
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl p-6 shadow-sm border">
+                <div className="text-sm text-slate-600 mb-1">Thumbs Feedback</div>
+                <div className="text-3xl font-bold text-slate-900">{stats.total}</div>
+                <div className="mt-2 flex gap-3 text-sm">
+                  <span className="text-green-600">👍 {stats.helpful}</span>
+                  <span className="text-red-600">👎 {stats.notHelpful}</span>
+                </div>
+                {stats.total > 0 && (
+                  <div className="mt-2 h-2 rounded-full bg-red-200 overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 rounded-full"
+                      style={{ width: `${(stats.helpful / stats.total) * 100}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-xl p-6 shadow-sm border">
+                <div className="text-sm text-slate-600 mb-1">Star Ratings</div>
+                <div className="text-3xl font-bold text-slate-900">{totalRatings}</div>
+                {totalRatings > 0 && (
+                  <div className="mt-2">
+                    <StarDisplay average={Math.round(overallAvg * 10) / 10} count={totalRatings} />
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-xl p-6 shadow-sm border">
+                <div className="text-sm text-slate-600 mb-1">User Messages</div>
+                <div className="text-3xl font-bold text-slate-900">{messages.length}</div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {["bug-report", "feature-request", "manual-feedback", "general"].map((t) => {
+                    const c = messages.filter((m) => m.type === t).length;
+                    return c > 0 ? (
+                      <span key={t} className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${TYPE_COLORS[t]}`}>
+                        {c} {TYPE_LABELS[t]}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 shadow-sm border">
+                <div className="text-sm text-slate-600 mb-1">Manuals Tracked</div>
+                <div className="text-3xl font-bold text-slate-900">
+                  {new Set([
+                    ...Object.keys(stats.bySlug),
+                    ...Object.keys(ratings),
+                    ...messages.filter((m) => m.slug).map((m) => m.slug!),
+                  ]).size}
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="divide-y divide-slate-200">
-              {feedback.map((entry, idx) => (
-                <div key={idx} className="p-4 hover:bg-slate-50 transition">
-                  <div className="flex items-start gap-3">
-                    {entry.helpful ? (
-                      <CheckCircle className="text-green-600 shrink-0 mt-0.5" size={20} />
-                    ) : (
-                      <XCircle className="text-red-600 shrink-0 mt-0.5" size={20} />
-                    )}
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-slate-900">
-                          {entry.slug}
-                        </span>
-                        {entry.sectionType && (
-                          <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
-                            {entry.sectionType}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {entry.sectionId && (
-                        <div className="text-sm text-slate-600 mb-1">
-                          Section: {entry.sectionId}
+
+            {/* Per-Manual Breakdown */}
+            {Object.keys(stats.bySlug).length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border">
+                <div className="p-4 border-b">
+                  <h2 className="text-lg font-semibold text-slate-900">Feedback by Manual</h2>
+                </div>
+                <div className="divide-y">
+                  {Object.entries(stats.bySlug)
+                    .sort((a, b) => (b[1].helpful + b[1].notHelpful) - (a[1].helpful + a[1].notHelpful))
+                    .map(([slug, counts]) => (
+                      <div key={slug} className="p-4 flex items-center gap-4 hover:bg-slate-50">
+                        <div className="flex-1 min-w-0">
+                          <a
+                            href={`/manual/${slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-600 hover:underline"
+                          >
+                            {slug}
+                          </a>
                         </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-green-600">👍 {counts.helpful}</span>
+                          <span className="text-red-600">👎 {counts.notHelpful}</span>
+                          {ratings[slug] && (
+                            <StarDisplay average={ratings[slug].average} count={ratings[slug].count} />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border flex flex-wrap gap-3">
+              <button
+                onClick={downloadCSV}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-600 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              >
+                <Download className="h-4 w-4" />
+                Download CSV
+              </button>
+              <button
+                onClick={clearFeedback}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear All Feedback
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Feedback (Thumbs) Tab ─── */}
+        {activeTab === "feedback" && (
+          <div className="space-y-4">
+            {/* Slug filter */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border flex items-center gap-3">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                value={slugFilter}
+                onChange={(e) => setSlugFilter(e.target.value)}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700"
+              >
+                <option value="">All manuals</option>
+                {Object.keys(stats.bySlug).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              {slugFilter && (
+                <button onClick={() => setSlugFilter("")} className="text-sm text-purple-600 hover:text-purple-700">
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Feedback list */}
+            <div className="bg-white rounded-xl shadow-sm border">
+              <div className="p-4 border-b">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Thumbs Feedback ({feedback.length})
+                </h2>
+              </div>
+              {feedback.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">No feedback entries yet.</div>
+              ) : (
+                <div className="divide-y">
+                  {feedback.map((entry, idx) => (
+                    <div key={idx} className="p-4 flex items-start gap-3 hover:bg-slate-50">
+                      {entry.helpful ? (
+                        <CheckCircle className="text-green-600 shrink-0 mt-0.5" size={18} />
+                      ) : (
+                        <XCircle className="text-red-600 shrink-0 mt-0.5" size={18} />
                       )}
-                      
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
-                        <span>{new Date(entry.createdAt).toLocaleString()}</span>
-                        <span>IP: {entry.ip.replace(/:\d+$/, "")}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <a
+                            href={`/manual/${entry.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-600 hover:underline text-sm"
+                          >
+                            {entry.slug}
+                          </a>
+                          {entry.sectionType && (
+                            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">
+                              {entry.sectionType}
+                            </span>
+                          )}
+                        </div>
+                        {entry.sectionId && (
+                          <div className="text-xs text-slate-500">Section: {entry.sectionId}</div>
+                        )}
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* ─── Ratings Tab ─── */}
+        {activeTab === "ratings" && (
+          <div className="space-y-4">
+            {Object.keys(ratings).length === 0 ? (
+              <div className="bg-white rounded-xl p-8 shadow-sm border text-center text-slate-500">
+                No star ratings yet.
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border">
+                <div className="p-4 border-b">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Star Ratings by Manual ({Object.keys(ratings).length} manuals)
+                  </h2>
+                </div>
+                <div className="divide-y">
+                  {Object.entries(ratings)
+                    .sort((a, b) => b[1].count - a[1].count)
+                    .map(([slug, r]) => (
+                      <div key={slug} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                        <a
+                          href={`/manual/${slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-blue-600 hover:underline"
+                        >
+                          {slug}
+                        </a>
+                        <StarDisplay average={r.average} count={r.count} />
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Messages Tab ─── */}
+        {activeTab === "messages" && (
+          <div className="space-y-4">
+            {/* Type filter */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border flex items-center gap-3">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                value={messageTypeFilter}
+                onChange={(e) => setMessageTypeFilter(e.target.value)}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700"
+              >
+                <option value="all">All types</option>
+                <option value="bug-report">Bug Reports</option>
+                <option value="feature-request">Feature Requests</option>
+                <option value="manual-feedback">Manual Feedback</option>
+                <option value="general">General</option>
+              </select>
+              <span className="text-sm text-slate-500">{filteredMessages.length} messages</span>
+            </div>
+
+            {/* Messages list */}
+            {filteredMessages.length === 0 ? (
+              <div className="bg-white rounded-xl p-8 shadow-sm border text-center text-slate-500">
+                No messages yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredMessages.map((msg) => (
+                  <div key={msg.id} className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2">
+                        <TypeBadge type={msg.type} />
+                        {msg.slug && (
+                          <a
+                            href={`/manual/${msg.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline"
+                          >
+                            {msg.slug}
+                          </a>
+                        )}
+                      </div>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">
+                        {new Date(msg.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{msg.message}</p>
+                    {msg.email && (
+                      <div className="mt-2 text-xs text-slate-500">
+                        📧 <a href={`mailto:${msg.email}`} className="text-blue-600 hover:underline">{msg.email}</a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
