@@ -50,17 +50,19 @@ const generationJsonSchema = toJSONSchema(InstructionManualGenerationSchema);
 // ──────────────────────────────────────────────
 
 function buildInstructions(slug: string): string {
-  return `Create an instruction manual for "${slug}" in JSON format.
+  return `Create an instruction manual for "${slug}" (software tool or website) in JSON format.
 
 Return ONLY raw JSON (no markdown blocks). Start with { and end with }.
 
 Include: overview, features (with id/name/description/category/whatItsFor/whenToUse/howToAccess/keywords/powerLevel), shortcuts (with id/keys/action/platforms/keywords/powerLevel), workflows (with id/name/description/steps/useCases/difficulty/estimatedTime), tips (with id/title/description/category/powerLevel), commonMistakes (with id/mistake/whyItHappens/correction/severity/keywords), recentUpdates.
 
+For websites: focus on key features and workflows (e.g., how to sign up, create content, navigate). Shortcuts may be fewer or browser-based. For software tools: include comprehensive keyboard shortcuts, advanced features, and platform-specific details.
+
 Set all sourceIndices to empty arrays. Use kebab-case for all IDs. Minimum: 4 features, 2 workflows, 3 tips.`;
 }
 
 function buildUserPrompt(toolName: string): string {
-  return `Create a manual for "${toolName}" in this JSON structure:
+  return `Create a manual for "${toolName}" (software tool or website) in this JSON structure:
 
 {
   "schemaVersion": "4.1",
@@ -76,6 +78,8 @@ function buildUserPrompt(toolName: string): string {
   "commonMistakes": [{ "id": "", "mistake": "", "whyItHappens": "", "correction": "", "severity": "minor", "keywords": [] }],
   "recentUpdates": [{ "feature": "", "description": "", "impact": "major", "sourceIndices": [] }]
 }
+
+For websites: focus on key workflows (e.g., sign up, create content), main features, and browser shortcuts if applicable. For software: include comprehensive keyboard shortcuts and platform-specific details.
 
 Rules: JSON only (no markdown), all IDs kebab-case, shortcuts.keys is STRING not object, tip.category must be one of: productivity/organization/collaboration/automation/shortcuts.`;
 }

@@ -144,12 +144,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check cache (24h)
+    // Check cache (30 days)
     const cached = await getLatestManual(slug);
     if (cached && !body.forceRefresh) {
       const generatedAt = new Date(cached.generatedAt).getTime();
       const age = Date.now() - generatedAt;
-      if (age < 24 * 60 * 60 * 1000) {
+      if (age < 30 * 24 * 60 * 60 * 1000) {
         const baseUrl =
           process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         return NextResponse.json({
