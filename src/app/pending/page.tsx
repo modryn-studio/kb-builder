@@ -419,7 +419,7 @@ export default function PendingPage() {
 
       <main className="mx-auto max-w-4xl px-6 py-8">
         {/* Notification banner */}
-        {!notificationsEnabled && "Notification" in (typeof window !== "undefined" ? window : {}) && jobs.length > 0 && (
+        {!notificationsEnabled && typeof window !== "undefined" && "Notification" in window && jobs.length > 0 && (
           <div className="mb-6 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm text-amber-800">
               Enable notifications to know when your manuals are ready — even if you close this tab.

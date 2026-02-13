@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findNextJob, updateJob } from "@/lib/db";
+import { findNextJob, updateJob, cleanupOldJobs } from "@/lib/db";
 import { generateManual } from "@/lib/generate";
 import { storeManual } from "@/lib/storage";
 
@@ -18,6 +18,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // ── Cleanup old jobs first ──
+    cleanupOldJobs();
 
     // ── Find next job ──
     const job = findNextJob();
@@ -51,6 +54,8 @@ export async function POST(request: NextRequest) {
         completedAt: new Date().toISOString(),
         manualUrl: result.blobUrl,
         shareableUrl: result.shareableUrl,
+        inputTokens: (manual as any).inputTokens || 0,
+        outputTokens: (manual as any).outputTokens || 0,
         modelCost: manual.cost.model,
         searchCost: manual.cost.search,
         totalCost: manual.cost.total,

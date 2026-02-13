@@ -439,7 +439,8 @@ export async function generateManual(
           },
         });
 
-        return manual;
+        // Return manual with token counts attached (not in schema, but needed for job tracking)
+        return Object.assign(manual, { inputTokens, outputTokens });
       } catch (err) {
         const msg =
           err instanceof Error ? err.message : "Unknown error";

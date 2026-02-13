@@ -66,8 +66,8 @@ export async function POST(
         completedAt: new Date().toISOString(),
         manualUrl: result.blobUrl,
         shareableUrl: result.shareableUrl,
-        inputTokens: 0,  // Will be populated by generate.ts cost tracking
-        outputTokens: 0,
+        inputTokens: (manual as any).inputTokens || 0,
+        outputTokens: (manual as any).outputTokens || 0,
         modelCost: manual.cost.model,
         searchCost: manual.cost.search,
         totalCost: manual.cost.total,
