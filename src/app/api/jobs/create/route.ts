@@ -10,7 +10,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const rawTool = body?.tool;
-    const userApiKey = body?.apiKey;
     const sessionId = body?.sessionId;
     const forceRefresh = body?.forceRefresh ?? false;
 
@@ -22,17 +21,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!userApiKey || typeof userApiKey !== "string" || !userApiKey.trim()) {
-      return NextResponse.json(
-        { error: "Perplexity API key is required" },
-        { status: 400 }
-      );
-    }
-
     if (!sessionId || typeof sessionId !== "string" || !isValidSessionId(sessionId)) {
       return NextResponse.json(
         { error: "Valid session ID is required" },
         { status: 400 }
+      );
+    }
+
+    // ── Check server API key ──
+    if (!process.env.PERPLEXITY_API_KEY) {
+      return NextResponse.json(
+        { error: "Service unavailable — API key not configured" },
+        { status: 503 }
       );
     }
 
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Rate limit ──
-    const { allowed, retryAfterMs } = checkJobRateLimit(sessionId);
+    const { allowed, retryAfterMs } = await checkJobRateLimit(sessionId);
     if (!allowed) {
       return NextResponse.json(
         { error: "Rate limit exceeded. Max 5 jobs per minute.", code: "RATE_LIMITED" },
@@ -95,20 +95,18 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Create job ──
-    const job = createJob({
+    const job = await createJob({
       toolName,
       slug,
       sessionId,
-      apiKey: userApiKey.trim(),
     });
 
-    const position = getQueuePosition(job.id);
+    const position = await getQueuePosition(job.id);
 
     // ── Fire-and-forget: trigger processing ──
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const processUrl = `${baseUrl}/api/jobs/${job.id}/process`;
 
-    // Use fetch with no await = fire-and-forget
     fetch(processUrl, {
       method: "POST",
       headers: {

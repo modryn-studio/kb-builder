@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const jobs = listJobs(sessionId, statuses);
+    const jobs = await listJobs(sessionId, statuses);
 
     return NextResponse.json({ jobs });
   } catch (err) {

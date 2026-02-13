@@ -1,8 +1,9 @@
 // ──────────────────────────────────────────────
-// Job Store — In-memory for dev, swap to Neon/Postgres for production
+// Job Store — In-memory + Blob persistence
 // ──────────────────────────────────────────────
 
 import { randomUUID } from "crypto";
+import { hydrateJobs, persistJobs } from "./blob-persistence";
 
 // ──────────────────────────────────────────────
 // Types
@@ -47,29 +48,41 @@ export interface GenerationJob {
   workflowCount: number;
   tipCount: number;
   coverageScore: number;
-
-  // API key (stored temporarily for processing, never exposed to client)
-  apiKey?: string;
 }
 
-export type JobSummary = Omit<GenerationJob, "apiKey">;
+export type JobSummary = GenerationJob;
 
 // ──────────────────────────────────────────────
-// In-Memory Store
+// In-Memory Store (hydrated from Blob on first access)
 // ──────────────────────────────────────────────
 
 const jobs = new Map<string, GenerationJob>();
+let hydrated = false;
+
+async function ensureHydrated(): Promise<void> {
+  if (hydrated) return;
+  hydrated = true;
+  const saved = await hydrateJobs();
+  for (const job of saved) {
+    jobs.set(job.id, job);
+  }
+}
+
+function persistAll(): void {
+  persistJobs(Array.from(jobs.values()));
+}
 
 // ──────────────────────────────────────────────
 // CRUD Operations
 // ──────────────────────────────────────────────
 
-export function createJob(params: {
+export async function createJob(params: {
   toolName: string;
   slug: string;
   sessionId: string;
-  apiKey: string;
-}): GenerationJob {
+}): Promise<GenerationJob> {
+  await ensureHydrated();
+
   const job: GenerationJob = {
     id: randomUUID(),
     toolName: params.toolName,
@@ -77,7 +90,6 @@ export function createJob(params: {
     status: "queued",
     createdAt: new Date().toISOString(),
     sessionId: params.sessionId,
-    apiKey: params.apiKey,
 
     // Defaults
     inputTokens: 0,
@@ -94,23 +106,23 @@ export function createJob(params: {
   };
 
   jobs.set(job.id, job);
+  persistAll();
   return job;
 }
 
-export function getJob(id: string): GenerationJob | undefined {
+export async function getJob(id: string): Promise<GenerationJob | undefined> {
+  await ensureHydrated();
   return jobs.get(id);
 }
 
-export function listJobs(sessionId: string, statuses?: JobStatus[]): JobSummary[] {
+export async function listJobs(sessionId: string, statuses?: JobStatus[]): Promise<JobSummary[]> {
+  await ensureHydrated();
   const results: JobSummary[] = [];
 
   for (const job of jobs.values()) {
     if (job.sessionId !== sessionId) continue;
     if (statuses && statuses.length > 0 && !statuses.includes(job.status)) continue;
-    
-    // Strip API key before returning
-    const { apiKey: _, ...summary } = job;
-    results.push(summary);
+    results.push(job);
   }
 
   // Sort by createdAt descending (newest first)
@@ -119,17 +131,20 @@ export function listJobs(sessionId: string, statuses?: JobStatus[]): JobSummary[
   );
 }
 
-export function updateJob(id: string, updates: Partial<GenerationJob>): GenerationJob | undefined {
+export async function updateJob(id: string, updates: Partial<GenerationJob>): Promise<GenerationJob | undefined> {
+  await ensureHydrated();
   const job = jobs.get(id);
   if (!job) return undefined;
 
   const updated = { ...job, ...updates };
   jobs.set(id, updated);
+  persistAll();
   return updated;
 }
 
 /** Find the oldest queued job, or a stuck processing job (>5 min). */
-export function findNextJob(): GenerationJob | undefined {
+export async function findNextJob(): Promise<GenerationJob | undefined> {
+  await ensureHydrated();
   const now = Date.now();
   const STUCK_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -161,7 +176,8 @@ export function findNextJob(): GenerationJob | undefined {
 }
 
 /** Count queued jobs ahead of a given job (for position display). */
-export function getQueuePosition(jobId: string): number {
+export async function getQueuePosition(jobId: string): Promise<number> {
+  await ensureHydrated();
   const job = jobs.get(jobId);
   if (!job || job.status !== "queued") return 0;
 
@@ -175,7 +191,8 @@ export function getQueuePosition(jobId: string): number {
 }
 
 /** Check rate limit: max jobs per session in a time window. */
-export function checkJobRateLimit(sessionId: string): { allowed: boolean; retryAfterMs?: number } {
+export async function checkJobRateLimit(sessionId: string): Promise<{ allowed: boolean; retryAfterMs?: number }> {
+  await ensureHydrated();
   const MAX_JOBS_PER_MINUTE = 5;
   const WINDOW_MS = 60_000;
   const now = Date.now();
@@ -199,7 +216,8 @@ export function checkJobRateLimit(sessionId: string): { allowed: boolean; retryA
 }
 
 /** Cleanup old completed/failed jobs (keep last 100 per session). */
-export function cleanupOldJobs(): void {
+export async function cleanupOldJobs(): Promise<void> {
+  await ensureHydrated();
   const MAX_JOBS_PER_SESSION = 100;
   const sessionCounts = new Map<string, GenerationJob[]>();
 
@@ -223,4 +241,5 @@ export function cleanupOldJobs(): void {
       }
     }
   }
+  persistAll();
 }

@@ -137,7 +137,7 @@ export async function POST(
       createdAt: new Date().toISOString(),
     };
 
-    addFeedback(entry);
+    await addFeedback(entry);
 
     return NextResponse.json({ success: true });
   } catch {

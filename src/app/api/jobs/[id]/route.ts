@@ -10,7 +10,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const job = getJob(id);
+    const job = await getJob(id);
     if (!job) {
       return NextResponse.json(
         { error: "Job not found" },
@@ -18,11 +18,8 @@ export async function GET(
       );
     }
 
-    // Strip API key — never expose to client
-    const { apiKey: _, ...safeJob } = job;
-
     // Add elapsed time for in-progress jobs
-    const response: Record<string, unknown> = { ...safeJob };
+    const response: Record<string, unknown> = { ...job };
     if (job.status === "processing" && job.startedAt) {
       response.elapsedMs = Date.now() - new Date(job.startedAt).getTime();
     }

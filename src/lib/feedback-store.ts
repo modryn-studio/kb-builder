@@ -1,7 +1,8 @@
 /**
- * Shared in-memory feedback store
- * Both the submission endpoint and admin viewer use this
+ * Shared feedback store — in-memory + Blob persistence
  */
+
+import { hydrateFeedback, persistFeedback } from "./blob-persistence";
 
 export interface FeedbackEntry {
   slug: string;
@@ -12,22 +13,35 @@ export interface FeedbackEntry {
   createdAt: string;
 }
 
-// In-memory storage (resets on server restart)
+// In-memory storage (hydrated from Blob on first access)
 export const feedbackStore: FeedbackEntry[] = [];
 
-// Maximum entries to keep in memory
-export const MAX_FEEDBACK_ENTRIES = 1000;
+// Maximum entries to keep
+export const MAX_FEEDBACK_ENTRIES = 5000;
+
+let hydrated = false;
+
+async function ensureHydrated(): Promise<void> {
+  if (hydrated) return;
+  hydrated = true;
+  const saved = await hydrateFeedback();
+  feedbackStore.push(...saved);
+}
 
 // Helper to add feedback and maintain size limit
-export function addFeedback(entry: FeedbackEntry) {
+export async function addFeedback(entry: FeedbackEntry) {
+  await ensureHydrated();
   feedbackStore.push(entry);
   
   // Keep only last N entries
-  if (feedbackStore.length > MAX_FEEDBACK_ENTRIES) {
+  while (feedbackStore.length > MAX_FEEDBACK_ENTRIES) {
     feedbackStore.shift();
   }
   
-  // Log to console for terminal monitoring (backwards compatible)
+  // Persist to Blob
+  persistFeedback(feedbackStore);
+
+  // Log to console for terminal monitoring
   console.log("[Feedback]", JSON.stringify({ 
     slug: entry.slug, 
     helpful: entry.helpful,
@@ -37,7 +51,8 @@ export function addFeedback(entry: FeedbackEntry) {
 }
 
 // Helper to get feedback stats
-export function getFeedbackStats() {
+export async function getFeedbackStats() {
+  await ensureHydrated();
   const total = feedbackStore.length;
   const helpful = feedbackStore.filter(f => f.helpful).length;
   const notHelpful = total - helpful;

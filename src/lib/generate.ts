@@ -29,11 +29,11 @@ const API_TIMEOUT_MS = 180_000; // 180s timeout per attempt
 // Client
 // ──────────────────────────────────────────────
 
-function getClient(userApiKey?: string): Perplexity {
-  const apiKey = userApiKey || process.env.PERPLEXITY_API_KEY;
+function getClient(): Perplexity {
+  const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "No API key provided. Please provide your Perplexity API key."
+      "PERPLEXITY_API_KEY is not configured."
     );
   }
   return new Perplexity({ apiKey });
@@ -302,9 +302,8 @@ function parseGenerationJSON(text: string): InstructionManualGeneration {
 export async function generateManual(
   toolName: string,
   onProgress?: ProgressCallback,
-  userApiKey?: string
 ): Promise<InstructionManual> {
-  const client = getClient(userApiKey);
+  const client = getClient();
   const slug = sanitizeSlug(toolName);
   const startTime = Date.now();
 

@@ -100,7 +100,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const rawTool = body?.tool;
-    const userApiKey = body?.apiKey;
 
     if (!rawTool || typeof rawTool !== "string") {
       return NextResponse.json(
@@ -109,10 +108,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!userApiKey || typeof userApiKey !== "string" || !userApiKey.trim()) {
+    if (!process.env.PERPLEXITY_API_KEY) {
       return NextResponse.json(
-        { error: "Perplexity API key is required. Get yours at https://www.perplexity.ai/settings/api" },
-        { status: 400 }
+        { error: "Service temporarily unavailable — API key not configured" },
+        { status: 503 }
       );
     }
 
@@ -214,8 +213,7 @@ export async function POST(request: NextRequest) {
                   event: "progress",
                   data: { stage, message },
                 });
-              },
-              userApiKey
+              }
             );
           } finally {
             clearInterval(progressInterval);

@@ -342,11 +342,6 @@ export default function PendingPage() {
   const handleRetry = useCallback(
     async (job: Job) => {
       const sessionId = getSessionId();
-      const savedKey = localStorage.getItem("perplexity_api_key");
-      if (!savedKey) {
-        alert("Please set your API key on the Builder page first.");
-        return;
-      }
 
       try {
         const response = await fetch("/api/jobs/create", {
@@ -354,7 +349,6 @@ export default function PendingPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             tool: job.toolName,
-            apiKey: savedKey,
             sessionId,
             forceRefresh: true,
           }),

@@ -23,7 +23,7 @@ export async function POST(
 
     const { id } = await params;
 
-    const job = getJob(id);
+    const job = await getJob(id);
     if (!job) {
       return NextResponse.json(
         { error: "Job not found" },
@@ -39,7 +39,7 @@ export async function POST(
     }
 
     // ── Mark as processing ──
-    updateJob(id, {
+    await updateJob(id, {
       status: "processing",
       startedAt: new Date().toISOString(),
     });
@@ -48,26 +48,25 @@ export async function POST(
     const startTime = Date.now();
 
     try {
-      // ── Generate manual ──
+      // ── Generate manual (uses server-side API key) ──
       const manual = await generateManual(
         job.toolName,
         (stage, message) => {
           console.log(`[JOB ${id}] ${stage}: ${message}`);
-        },
-        job.apiKey
+        }
       );
 
       // ── Store in Blob ──
       const result = await storeManual(manual);
 
       // ── Update job with results ──
-      updateJob(id, {
+      await updateJob(id, {
         status: "completed",
         completedAt: new Date().toISOString(),
         manualUrl: result.blobUrl,
         shareableUrl: result.shareableUrl,
-        inputTokens: (manual as any).inputTokens || 0,
-        outputTokens: (manual as any).outputTokens || 0,
+        inputTokens: (manual as unknown as Record<string, number>).inputTokens || 0,
+        outputTokens: (manual as unknown as Record<string, number>).outputTokens || 0,
         modelCost: manual.cost.model,
         searchCost: manual.cost.search,
         totalCost: manual.cost.total,
@@ -79,8 +78,6 @@ export async function POST(
         workflowCount: manual.workflows.length,
         tipCount: manual.tips.length,
         coverageScore: manual.coverageScore,
-        // Clear API key after processing
-        apiKey: undefined,
       });
 
       console.log(`[JOB ${id}] ✅ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s — ${manual.features.length} features, $${manual.cost.total.toFixed(4)}`);
@@ -94,13 +91,11 @@ export async function POST(
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       console.error(`[JOB ${id}] ❌ Failed:`, errorMessage);
 
-      updateJob(id, {
+      await updateJob(id, {
         status: "failed",
         completedAt: new Date().toISOString(),
         errorMessage,
         generationTimeMs: Date.now() - startTime,
-        // Clear API key after processing
-        apiKey: undefined,
       });
 
       return NextResponse.json({

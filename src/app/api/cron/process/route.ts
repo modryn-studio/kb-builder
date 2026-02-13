@@ -20,10 +20,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Cleanup old jobs first ──
-    cleanupOldJobs();
+    await cleanupOldJobs();
 
     // ── Find next job ──
-    const job = findNextJob();
+    const job = await findNextJob();
     if (!job) {
       return NextResponse.json({ message: "No jobs to process" });
     }
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     console.log(`[CRON] Processing job ${job.id}: "${job.toolName}"`);
 
     // ── Mark as processing ──
-    updateJob(job.id, {
+    await updateJob(job.id, {
       status: "processing",
       startedAt: new Date().toISOString(),
     });
@@ -43,19 +43,18 @@ export async function POST(request: NextRequest) {
         job.toolName,
         (stage, message) => {
           console.log(`[CRON ${job.id}] ${stage}: ${message}`);
-        },
-        job.apiKey
+        }
       );
 
       const result = await storeManual(manual);
 
-      updateJob(job.id, {
+      await updateJob(job.id, {
         status: "completed",
         completedAt: new Date().toISOString(),
         manualUrl: result.blobUrl,
         shareableUrl: result.shareableUrl,
-        inputTokens: (manual as any).inputTokens || 0,
-        outputTokens: (manual as any).outputTokens || 0,
+        inputTokens: (manual as unknown as Record<string, number>).inputTokens || 0,
+        outputTokens: (manual as unknown as Record<string, number>).outputTokens || 0,
         modelCost: manual.cost.model,
         searchCost: manual.cost.search,
         totalCost: manual.cost.total,
@@ -67,7 +66,6 @@ export async function POST(request: NextRequest) {
         workflowCount: manual.workflows.length,
         tipCount: manual.tips.length,
         coverageScore: manual.coverageScore,
-        apiKey: undefined,
       });
 
       console.log(`[CRON ${job.id}] ✅ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
@@ -81,12 +79,11 @@ export async function POST(request: NextRequest) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       console.error(`[CRON ${job.id}] ❌ Failed:`, errorMessage);
 
-      updateJob(job.id, {
+      await updateJob(job.id, {
         status: "failed",
         completedAt: new Date().toISOString(),
         errorMessage,
         generationTimeMs: Date.now() - startTime,
-        apiKey: undefined,
       });
 
       return NextResponse.json({
