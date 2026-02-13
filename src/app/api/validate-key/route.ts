@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import Perplexity from "@perplexity-ai/perplexity_ai";
 
 /**
  * POST /api/validate-key
@@ -15,35 +16,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate the key by calling Perplexity's Agent API responses endpoint with a minimal request
-    const response = await fetch("https://api.perplexity.ai/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey.trim()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    // Validate the key by making a minimal Agent API request using the SDK
+    const client = new Perplexity({ apiKey: apiKey.trim() });
+
+    try {
+      await client.responses.create({
         model: "anthropic/claude-opus-4-6",
         input: "test",
         max_output_tokens: 1,
-      }),
-    });
+        stream: false,
+      });
 
-    console.log("Perplexity API response status:", response.status);
-
-    if (response.ok) {
       return NextResponse.json({ valid: true });
-    } else {
-      const errorText = await response.text().catch(() => "Unknown error");
-      console.error("Perplexity API error:", response.status, errorText);
+    } catch (apiError: unknown) {
+      console.error("Perplexity API error:", apiError);
+      
+      // Check if it's an authentication error
+      const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+      const isAuthError = errorMessage.toLowerCase().includes("401") || 
+                         errorMessage.toLowerCase().includes("unauthorized") ||
+                         errorMessage.toLowerCase().includes("invalid") ||
+                         errorMessage.toLowerCase().includes("authentication");
       
       return NextResponse.json(
         { 
           valid: false, 
-          error: response.status === 401 
+          error: isAuthError
             ? "Invalid or expired API key. Please check your Perplexity API key." 
-            : "Failed to validate API key",
-          details: errorText 
+            : "Failed to validate API key. Please try again.",
+          details: errorMessage
         },
         { status: 401 }
       );

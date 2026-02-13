@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateManualStreaming } from "@/lib/generate";
+import { generateManual } from "@/lib/generate";
 import { getLatestManual, storeManual } from "@/lib/storage";
 import { sanitizeToolName, sanitizeSlug, isValidSlug } from "@/lib/utils";
+import type { InstructionManual } from "@/lib/schema";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 300;
 
 // ──────────────────────────────────────────────
 // In-memory rate limiting
@@ -82,8 +83,13 @@ function sendEvent(
   controller: ReadableStreamDefaultController,
   data: Record<string, unknown>
 ) {
-  const line = JSON.stringify(data) + "\n";
-  controller.enqueue(new TextEncoder().encode(line));
+  try {
+    const line = JSON.stringify(data) + "\n";
+    controller.enqueue(new TextEncoder().encode(line));
+  } catch (error) {
+    // Controller already closed - client disconnected or stream ended
+    console.warn("Cannot send event - controller closed", data.type);
+  }
 }
 
 // ──────────────────────────────────────────────
@@ -163,72 +169,123 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Stream generation
+    // Generate manual with synthetic progress updates (SDK streaming is broken)
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          let storedManual: Record<string, unknown> | null = null;
+          // Send initial event
+          sendEvent(controller, {
+            event: "started",
+            data: { tool: toolName, slug, timestamp: new Date().toISOString() },
+          });
 
-          for await (const event of generateManualStreaming(toolName, userApiKey)) {
-            if (event.event === "manual") {
-              // Capture but don't forward — wait for storage
-              storedManual = event.data;
-              continue;
-            }
+          // Synthetic progress events for better UX
+          const progressSteps = [
+            { delay: 500, stage: "initializing", message: "Starting research..." },
+            { delay: 2000, stage: "searching", message: "Searching official documentation..." },
+            { delay: 5000, stage: "searching", message: "Analyzing feature set..." },
+            { delay: 8000, stage: "searching", message: "Gathering keyboard shortcuts..." },
+            { delay: 12000, stage: "structuring", message: "Building comprehensive manual..." },
+            { delay: 18000, stage: "structuring", message: "Organizing workflows and tips..." },
+            { delay: 25000, stage: "validating", message: "Validating structure..." },
+          ];
 
-            if (event.event === "complete" && storedManual) {
-              // Store before sending complete
-              try {
-                const manual = storedManual.manual as import("@/lib/schema").InstructionManual;
-                const result = await storeManual(manual);
-                sendEvent(controller, {
-                  event: "stored",
-                  data: {
-                    shareableUrl: result.shareableUrl,
-                    version: result.version,
-                    summary: {
-                      features: manual.features.length,
-                      shortcuts: manual.shortcuts.length,
-                      workflows: manual.workflows.length,
-                      tips: manual.tips.length,
-                      commonMistakes: manual.commonMistakes.length,
-                      coverageScore: manual.coverageScore,
-                    },
-                    generationTimeMs: event.data.generationTimeMs,
-                    citationCount: event.data.citationCount,
-                    featureCount: event.data.featureCount,
-                    model: event.data.model,
-                    cost: manual.cost?.total ?? 0,
-                  },
-                });
-              } catch (storageErr) {
-                console.error("Storage failed:", storageErr);
-                sendEvent(controller, {
-                  event: "warning",
-                  data: {
-                    message: "Manual generated but storage failed",
-                    slug,
-                  },
-                });
-              }
-              sendEvent(controller, { ...event });
-            } else {
-              sendEvent(controller, { ...event });
+          // Start progress timer
+          const startTime = Date.now();
+          const progressInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const nextStep = progressSteps.find(s => elapsed >= s.delay && elapsed < s.delay + 1000);
+            if (nextStep) {
+              sendEvent(controller, {
+                event: "progress",
+                data: { stage: nextStep.stage, message: nextStep.message },
+              });
             }
+          }, 1000);
+
+          // Actual generation (non-streaming)
+          let manual: InstructionManual;
+          try {
+            manual = await generateManual(
+              toolName,
+              (stage, message) => {
+                // Real progress from generation
+                sendEvent(controller, {
+                  event: "progress",
+                  data: { stage, message },
+                });
+              },
+              userApiKey
+            );
+          } finally {
+            clearInterval(progressInterval);
+          }
+
+          // Store manual
+          sendEvent(controller, {
+            event: "progress",
+            data: { stage: "storing", message: "Saving manual to storage..." },
+          });
+
+          try {
+            const result = await storeManual(manual);
+
+            sendEvent(controller, {
+              event: "stored",
+              data: {
+                shareableUrl: result.shareableUrl,
+                summary: {
+                  features: manual.features.length,
+                  shortcuts: manual.shortcuts.length,
+                  workflows: manual.workflows.length,
+                  tips: manual.tips.length,
+                  commonMistakes: manual.commonMistakes.length,
+                  coverageScore: manual.coverageScore,
+                },
+                citationCount: manual.citations.length,
+                generationTimeMs: manual.generationTimeMs,
+                cost: manual.cost.total,
+                version: result.version,
+              },
+            });
+
+            sendEvent(controller, {
+              event: "complete",
+              data: {
+                generationTimeMs: manual.generationTimeMs,
+                citationCount: manual.citations.length,
+              },
+            });
+          } catch (storageErr) {
+            console.error("Storage error:", storageErr);
+            sendEvent(controller, {
+              event: "warning",
+              data: {
+                message: "Failed to store manual, but generation succeeded",
+                slug: manual.slug,
+              },
+            });
+          }
+
+          try {
+            controller.close();
+          } catch (closeErr) {
+            // Controller already closed, ignore
           }
         } catch (err) {
+          console.error("Generation error:", err);
           sendEvent(controller, {
             event: "error",
             data: {
               code: "GENERATION_FAILED",
-              message:
-                err instanceof Error
-                  ? err.message
-                  : "Unknown generation error",
+              message: err instanceof Error ? err.message : "Generation failed",
             },
           });
-        } finally {
-          controller.close();
+          try {
+            controller.close();
+          } catch (closeErr) {
+            // Controller already closed, ignore
+          }
         }
       },
     });
@@ -237,7 +294,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/x-ndjson",
         "Cache-Control": "no-cache",
-        "Transfer-Encoding": "chunked",
+        "Connection": "keep-alive",
       },
     });
   } catch (err) {

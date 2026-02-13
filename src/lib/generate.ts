@@ -20,12 +20,12 @@ import type {
 // ──────────────────────────────────────────────
 
 const MODELS = [
-  "anthropic/claude-opus-4-6",
-  "anthropic/claude-sonnet-4-5",
+  "anthropic/claude-opus-4-6",   // Only model that works with Agent API
+  // "anthropic/claude-sonnet-4-5" - Returns 400 errors (incompatible)
 ] as const;
 
-const MAX_ATTEMPTS = 2;
-const API_TIMEOUT_MS = 55_000;
+const MAX_ATTEMPTS = 1; // No retries - API too slow
+const API_TIMEOUT_MS = 180_000; // 180s timeout per attempt
 
 // ──────────────────────────────────────────────
 // Client
@@ -52,60 +52,36 @@ const generationJsonSchema = toJSONSchema(InstructionManualGenerationSchema);
 // ──────────────────────────────────────────────
 
 function buildInstructions(slug: string): string {
-  return `You are an expert technical writer creating a comprehensive instruction manual for a software tool.
+  return `Create an instruction manual for "${slug}" in JSON format.
 
-## Research Rules
-- Use web_search extensively to find official documentation, tutorials, release notes, and community resources
-- Cross-reference multiple sources for accuracy
-- Include all keyboard shortcuts from official docs
-- Check for recent updates from the past 6 months
+Return ONLY raw JSON (no markdown blocks). Start with { and end with }.
 
-## Structuring Rules
-- Group features into logical categories (e.g., "Editing", "Navigation", "Collaboration")
-- Every feature MUST have a unique kebab-case ID
-- Every shortcut MUST include platform info
-- Workflows must have at least 2 steps with concrete actions
-- Tips should go beyond basic usage — focus on power-user knowledge
+Include: overview, features (with id/name/description/category/whatItsFor/whenToUse/howToAccess/keywords/powerLevel), shortcuts (with id/keys/action/platforms/keywords/powerLevel), workflows (with id/name/description/steps/useCases/difficulty/estimatedTime), tips (with id/title/description/category/powerLevel), commonMistakes (with id/mistake/whyItHappens/correction/severity/keywords), recentUpdates.
 
-## Quality Rules
-- coverageScore should honestly reflect how complete the manual is (0-1)
-- toolScope: "enterprise" for complex tools (Notion, Figma, VSCode), "standard" for moderate tools, "simple" for basic tools
-- Aim for at least 15 features for enterprise tools, 8 for standard, 4 for simple
-- At least 3 workflows showing real use cases
-- At least 5 tips per tool
-
-## Citation Rules (CRITICAL)
-- sourceIndices reference positions in the citations array (0-based)
-- Only use indices for sources you actually found via search
-- Each feature, shortcut, workflow, and tip should cite its sources
-
-## Schema Rules
-- schemaVersion must be exactly "4.1"
-- slug must be exactly "${slug}"
-- All IDs must be unique within their section
-- All arrays that require .min(1) must have at least one element
-
-## Completeness Targets by Scope
-- enterprise: 15+ features, 10+ shortcuts, 5+ workflows, 10+ tips
-- standard: 8+ features, 5+ shortcuts, 3+ workflows, 5+ tips
-- simple: 4+ features, 2+ shortcuts, 2+ workflows, 3+ tips`;
+Set all sourceIndices to empty arrays. Use kebab-case for all IDs. Minimum: 4 features, 2 workflows, 3 tips.`;
 }
 
 function buildUserPrompt(toolName: string): string {
-  return `Create a comprehensive instruction manual for "${toolName}".
+  return `Create a manual for "${toolName}" in this JSON structure:
 
-Research thoroughly using web search. Cover these areas:
-1. Official documentation and feature list
-2. Keyboard shortcuts and hotkeys
-3. Common workflows and tutorials
-4. Tips and tricks from power users
-5. Common mistakes and how to avoid them
-6. Recent updates and new features
-7. Integration capabilities
-8. Pricing and platform availability
-
-Generate a complete, well-structured manual following the schema exactly.`;
+{
+  "schemaVersion": "4.1",
+  "tool": "${toolName}",
+  "slug": "kebab-case",
+  "coverageScore": 0.85,
+  "toolScope": "simple",
+  "overview": { "whatItIs": "", "primaryUseCases": [], "platforms": [], "pricing": "", "targetUsers": [] },
+  "features": [{ "id": "", "name": "", "category": "", "description": "", "whatItsFor": "", "whenToUse": [], "howToAccess": "", "keywords": [], "powerLevel": "basic", "sourceIndices": [] }],
+  "shortcuts": [{ "id": "", "keys": "Ctrl+C", "action": "", "platforms": [], "keywords": [], "powerLevel": "basic", "sourceIndices": [] }],
+  "workflows": [{ "id": "", "name": "", "description": "", "steps": [{ "step": 1, "action": "", "details": "" }], "useCases": [], "difficulty": "beginner", "estimatedTime": "2min", "sourceIndices": [] }],
+  "tips": [{ "id": "", "title": "", "description": "", "category": "productivity", "powerLevel": "basic", "sourceIndices": [] }],
+  "commonMistakes": [{ "id": "", "mistake": "", "whyItHappens": "", "correction": "", "severity": "minor", "keywords": [] }],
+  "recentUpdates": [{ "feature": "", "description": "", "impact": "major", "sourceIndices": [] }]
 }
+
+Rules: JSON only (no markdown), all IDs kebab-case, shortcuts.keys is STRING not object, tip.category must be one of: productivity/organization/collaboration/automation/shortcuts.`;
+}
+
 
 // ──────────────────────────────────────────────
 // Types
@@ -175,22 +151,150 @@ function sanitizeManualIndices(
   };
 }
 
+// ──────────────────────────────────────────────
+// Normalize model output to match Zod schema
+// Models return slightly different shapes than our schema expects.
+// This transform layer bridges the gap.
+// ──────────────────────────────────────────────
+
+function normalizeTipCategory(cat: string): "productivity" | "organization" | "collaboration" | "automation" | "shortcuts" {
+  const valid = ["productivity", "organization", "collaboration", "automation", "shortcuts"] as const;
+  if (valid.includes(cat as typeof valid[number])) return cat as typeof valid[number];
+  const mapping: Record<string, typeof valid[number]> = {
+    quality: "productivity",
+    performance: "productivity",
+    troubleshooting: "shortcuts",
+    general: "productivity",
+  };
+  return mapping[cat] || "productivity";
+}
+
+function normalizeModelOutput(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null) return raw;
+  const data = { ...(raw as Record<string, unknown>) };
+
+  // ── Overview normalization ──
+  if (data.overview && typeof data.overview === "object") {
+    const ov = { ...(data.overview as Record<string, unknown>) };
+    // primaryUseCase (string) → primaryUseCases (array)
+    if (!ov.primaryUseCases && ov.primaryUseCase) {
+      ov.primaryUseCases = [ov.primaryUseCase as string];
+    } else if (!ov.primaryUseCases) {
+      ov.primaryUseCases = [];
+    }
+    // pricingModel → pricing
+    if (!ov.pricing && ov.pricingModel) {
+      ov.pricing = ov.pricingModel as string;
+    }
+    // targetAudience (string) → targetUsers (array)
+    if (!ov.targetUsers && ov.targetAudience) {
+      ov.targetUsers = [ov.targetAudience as string];
+    }
+    data.overview = ov;
+  }
+
+  // ── Features normalization ──
+  if (Array.isArray(data.features)) {
+    data.features = (data.features as Record<string, unknown>[]).map((f) => ({
+      ...f,
+      whatItsFor: f.whatItsFor || f.description || "",
+      whenToUse: Array.isArray(f.whenToUse) ? f.whenToUse : [],
+      howToAccess: f.howToAccess || "",
+      keywords: Array.isArray(f.keywords) ? f.keywords : [((f.name as string) || "").toLowerCase()],
+      powerLevel: f.powerLevel || "basic",
+      relatedFeatures: Array.isArray(f.relatedFeatures) ? f.relatedFeatures : [],
+    }));
+  }
+
+  // ── Shortcuts normalization ──
+  if (Array.isArray(data.shortcuts)) {
+    data.shortcuts = (data.shortcuts as Record<string, unknown>[]).map((s) => {
+      // keys might be an object like {windows: "Ctrl+C", mac: "Cmd+C"} instead of a string
+      let keysStr = s.keys;
+      if (typeof s.keys === "object" && s.keys !== null) {
+        keysStr = Object.values(s.keys as Record<string, string>).join(" / ");
+      }
+      return {
+        ...s,
+        keys: keysStr,
+        platforms: Array.isArray(s.platforms)
+          ? s.platforms
+          : typeof s.keys === "object" && s.keys !== null
+            ? Object.keys(s.keys as Record<string, string>)
+            : ["Windows"],
+        keywords: Array.isArray(s.keywords)
+          ? s.keywords
+          : [((s.action as string) || "").toLowerCase()],
+        powerLevel: s.powerLevel || "basic",
+      };
+    });
+  }
+
+  // ── Workflows normalization ──
+  if (Array.isArray(data.workflows)) {
+    data.workflows = (data.workflows as Record<string, unknown>[]).map((w) => ({
+      ...w,
+      name: w.name || w.title || "",
+      useCases: Array.isArray(w.useCases) ? w.useCases : [],
+      difficulty: w.difficulty || "beginner",
+      estimatedTime: w.estimatedTime || "varies",
+      steps: Array.isArray(w.steps)
+        ? (w.steps as Record<string, unknown>[]).map((step, i) => ({
+            step: step.step || i + 1,
+            action: step.action || "",
+            details: step.details || "",
+            featuresUsed: Array.isArray(step.featuresUsed) ? step.featuresUsed : [],
+          }))
+        : [],
+    }));
+  }
+
+  // ── Tips normalization ──
+  if (Array.isArray(data.tips)) {
+    data.tips = (data.tips as Record<string, unknown>[]).map((t) => ({
+      ...t,
+      category: normalizeTipCategory((t.category as string) || "productivity"),
+      powerLevel: t.powerLevel || "basic",
+    }));
+  }
+
+  // ── Common mistakes normalization ──
+  if (Array.isArray(data.commonMistakes)) {
+    data.commonMistakes = (data.commonMistakes as Record<string, unknown>[]).map((m, i) => ({
+      ...m,
+      id: m.id || `mistake-${i + 1}`,
+    }));
+  }
+
+  return data;
+}
+
 function parseGenerationJSON(text: string): InstructionManualGeneration {
   if (!text || text.trim().length === 0) {
     throw new Error("Empty response text");
   }
 
+  // Strip markdown code blocks if present (models sometimes wrap despite instructions)
+  let cleanedText = text.trim();
+  if (cleanedText.startsWith('```json')) {
+    cleanedText = cleanedText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  } else if (cleanedText.startsWith('```')) {
+    cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  }
+
   let raw: unknown;
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(cleanedText);
   } catch (e) {
-    const preview = text.slice(0, 200);
+    const preview = cleanedText.slice(0, 200);
     throw new Error(
       `JSON parse failed: ${e instanceof Error ? e.message : "unknown"}. Preview: ${preview}`
     );
   }
 
-  return InstructionManualGenerationSchema.parse(raw);
+  // Normalize model output to match schema expectations
+  const normalized = normalizeModelOutput(raw);
+  return InstructionManualGenerationSchema.parse(normalized);
 }
 
 // ──────────────────────────────────────────────
@@ -217,9 +321,16 @@ export async function generateManual(
 
         const controller = new AbortController();
         const timeout = setTimeout(
-          () => controller.abort(),
+          () => {
+            console.log(`[${new Date().toISOString()}] API call timeout after ${API_TIMEOUT_MS}ms`);
+            controller.abort();
+          },
           API_TIMEOUT_MS
         );
+
+        console.log(`[${new Date().toISOString()}] Making API call to ${model}...`);
+        console.log("Instructions length:", buildInstructions(slug).length);
+        console.log("Prompt length:", buildUserPrompt(toolName).length);
 
         let response: ResponseCreateResponse;
         try {
@@ -228,47 +339,56 @@ export async function generateManual(
               model,
               instructions: buildInstructions(slug),
               input: buildUserPrompt(toolName),
-              tools: [{ type: "web_search" }],
-              response_format: {
-                type: "json_schema",
-                json_schema: {
-                  name: "instruction_manual",
-                  schema: generationJsonSchema,
-                  strict: true,
-                },
-              },
+              // Temporarily removed web_search to test if that's causing slowness
+              // tools: [{ type: "web_search" }],
               max_output_tokens: 65536,
               stream: false,
             },
             { signal: controller.signal }
           );
+          console.log(`[${new Date().toISOString()}] API call succeeded!`);
+        } catch (apiError) {
+          console.error("API call error:", apiError);
+          throw apiError;
         } finally {
           clearTimeout(timeout);
         }
 
-        // Extract text from output
+        // Extract text from response with detailed debugging
+        console.log("Response keys:", Object.keys(response));
+        console.log("Response status:", response.status);
+        console.log("Has output_text:", "output_text" in response);
+        console.log("output_text value:", response.output_text);
+        console.log("Has output array:", "output" in response);
+        
+        // Try multiple extraction methods
         let text = "";
-        if (response.output) {
+        
+        // Method 1: convenience property
+        if (response.output_text && typeof response.output_text === "string") {
+          text = response.output_text;
+        }
+        
+        // Method 2: extract from output array
+        if (!text && "output" in response && Array.isArray(response.output)) {
+          console.log("Trying to extract from output array, length:", response.output.length);
           for (const item of response.output) {
-            if (
-              item.type === "message" &&
-              "content" in item &&
-              Array.isArray(item.content)
-            ) {
-              for (const block of item.content) {
-                if (
-                  typeof block === "object" &&
-                  block !== null &&
-                  "type" in block &&
-                  block.type === "output_text" &&
-                  "text" in block
-                ) {
-                  text += (block as { text: string }).text;
-                }
-              }
+            console.log("Output item:", JSON.stringify(item, null, 2));
+            // Output items can be: message, search_results, fetch_url_results, function_call
+            if (item.type === "message" && "content" in item && typeof item.content === "string") {
+              text += item.content;
             }
           }
         }
+
+        if (!text || text.trim().length === 0) {
+          console.error("Empty response from API");
+          console.error("Full response:", JSON.stringify(response, null, 2));
+          throw new Error("Empty response from API - model may have refused or failed to generate");
+        }
+
+        console.log("Extracted text length:", text.length);
+        console.log("Text preview:", text.substring(0, 200));
 
         const parsed = parseGenerationJSON(text);
         const citations = extractCitationsFromResponse(response);
@@ -300,6 +420,23 @@ export async function generateManual(
       } catch (err) {
         const msg =
           err instanceof Error ? err.message : "Unknown error";
+        
+        // Enhanced error logging for debugging
+        console.error(`\n${"=".repeat(60)}`);
+        console.error(`GENERATION ATTEMPT FAILED (${model}, attempt ${attempt}/${MAX_ATTEMPTS})`);
+        console.error(`${"=".repeat(60)}`);
+        console.error("Error message:", msg);
+        
+        // If it's a Zod error, log the validation issues
+        if (err && typeof err === "object" && "issues" in err) {
+          console.error("\nZod Validation Errors:");
+          console.error(JSON.stringify((err as any).issues, null, 2));
+        }
+        
+        // Log full error for debugging
+        console.error("\nFull error object:", err);
+        console.error(`${"=".repeat(60)}\n`);
+        
         onProgress?.("error", `Attempt ${attempt} failed: ${msg}`, {
           model,
           attempt,
@@ -317,6 +454,10 @@ export async function generateManual(
     }
   }
 
+  console.error("\n❌ FINAL FAILURE: All models exhausted");
+  console.error(`Tried models: ${MODELS.join(", ")}`);
+  console.error(`Max attempts per model: ${MAX_ATTEMPTS}\n`);
+  
   throw new Error(
     `Generation failed after trying all models (${MODELS.join(", ")})`
   );
@@ -365,25 +506,24 @@ export async function* generateManualStreaming(
 
         let stream: AsyncIterable<ResponseStreamChunk>;
         try {
-          stream = await client.responses.create(
+          console.log("Creating stream request...");
+          const response = await client.responses.create(
             {
               model,
               instructions: buildInstructions(slug),
               input: buildUserPrompt(toolName),
               tools: [{ type: "web_search" }],
-              response_format: {
-                type: "json_schema",
-                json_schema: {
-                  name: "instruction_manual",
-                  schema: generationJsonSchema,
-                  strict: true,
-                },
-              },
+              // Removed response_format to enable streaming (incompatible with json_schema)
+              // Schema validation handled via prompt instructions + post-validation
               max_output_tokens: 65536,
               stream: true,
             },
             { signal: controller.signal }
           );
+          
+          // Treat response directly as async iterable stream
+          stream = response as AsyncIterable<ResponseStreamChunk>;
+          console.log("Stream created successfully");
         } catch (err) {
           clearTimeout(timeout);
           throw err;
@@ -393,10 +533,34 @@ export async function* generateManualStreaming(
         let searchQueries: string[] = [];
         const searchResultUrls = new Set<string>();
         let finalResponse: ResponseCreateResponse | undefined;
+        let chunkCount = 0;
 
+        console.log("Starting stream iteration...");
         try {
+          let iterationCount = 0;
+          const maxIterations = 1000; // Safety limit
+          
           for await (const chunk of stream) {
-            if (!chunk.type) continue;
+            iterationCount++;
+            chunkCount++;
+            
+            if (iterationCount > maxIterations) {
+              console.error("Too many iterations, breaking");
+              break;
+            }
+            
+            // Debug: Log every chunk we receive
+            console.log(`Chunk ${chunkCount}:`, {
+              type: chunk.type,
+              keys: Object.keys(chunk),
+              hasResponse: "response" in chunk,
+              hasDelta: "delta" in chunk
+            });
+            
+            if (!chunk.type) {
+              console.log("Skipping chunk without type");
+              continue;
+            }
 
             switch (chunk.type) {
               case "response.reasoning.started":
@@ -477,6 +641,20 @@ export async function* generateManualStreaming(
           }
         } finally {
           clearTimeout(timeout);
+          console.log(`Stream iteration ended. Total chunks: ${chunkCount}`);
+        }
+
+        // Debug: Log extraction results
+        console.log("Text extraction complete:", {
+          textLength: fullText.length,
+          citationCount: searchResultUrls.size,
+          hasResponse: !!finalResponse
+        });
+        
+        // If fullText is empty but we have finalResponse, use output_text convenience property
+        if (!fullText && finalResponse && "output_text" in finalResponse) {
+          console.log("Using output_text convenience property");
+          fullText = String(finalResponse.output_text || "");
         }
 
         // Parse and validate

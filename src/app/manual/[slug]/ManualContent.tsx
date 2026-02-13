@@ -356,7 +356,7 @@ export default function ManualContent({
         if (w.description) lines.push(`${w.description}\n\n`);
         lines.push(`**Steps**:\n\n`);
         w.steps.forEach((step, i) => {
-          lines.push(`${i + 1}. ${step}\n`);
+          lines.push(`${i + 1}. **${step.action}**${step.details ? `: ${step.details}` : ''}\n`);
         });
         lines.push("\n");
       }

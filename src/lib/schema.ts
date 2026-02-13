@@ -77,7 +77,7 @@ export const CommonMistakeSchema = z.object({
 export const RecentUpdateSchema = z.object({
   feature: z.string().describe("Feature name"),
   description: z.string().describe("What changed"),
-  impact: z.enum(["major", "minor"]),
+  impact: z.enum(["major", "moderate", "minor"]),
   sourceIndices: z.array(z.number().int().nonnegative()).default([]),
 });
 
