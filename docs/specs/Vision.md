@@ -1,5 +1,7 @@
 # Vision: Tool Copilot
 
+> **Note:** This is the original vision. Components 2 & 3 (Action Monitor + Suggestion Engine) are being built in a [separate repo](https://github.com/modryn-studio/tool-copilot-monitor). See [Vision_v2.0.md](https://github.com/modryn-studio/tool-copilot-monitor/blob/main/docs/specs/Vision_v2.0.md) in that repo for the updated architecture.
+
 **Problem:** People never learn the full power of tools they use daily. Onboarding sucks. Feature discovery is passive. Users plateau at basics.
 
 **Solution:** AI agent that auto-learns any tool and teaches you contextually as you work.

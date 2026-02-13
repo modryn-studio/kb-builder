@@ -10,8 +10,6 @@ import { sanitizeSlug } from "./utils";
 
 // SDK types
 import type {
-  ResponseStreamChunk,
-  OutputItem,
   ResponseCreateResponse,
 } from "@perplexity-ai/perplexity_ai/resources/responses";
 
@@ -339,8 +337,7 @@ export async function generateManual(
               model,
               instructions: buildInstructions(slug),
               input: buildUserPrompt(toolName),
-              // Temporarily removed web_search to test if that's causing slowness
-              // tools: [{ type: "web_search" }],
+              tools: [{ type: "web_search" }],
               max_output_tokens: 65536,
               stream: false,
             },
@@ -394,12 +391,38 @@ export async function generateManual(
         const citations = extractCitationsFromResponse(response);
         const sanitized = sanitizeManualIndices(parsed, citations.length);
 
-        // Calculate cost (Perplexity pricing: $5/$25 per million tokens)
-        const inputTokens = response.usage?.input_tokens ?? 0;
-        const outputTokens = response.usage?.output_tokens ?? 0;
+        // ── Usage & Cost Tracking ──
+        // Debug: log the full usage object to understand API response shape
+        console.log("Response usage:", JSON.stringify(response.usage, null, 2));
+        console.log("Response keys for usage discovery:", Object.keys(response));
+
+        // Try multiple paths — Perplexity may use different field names
+        const rawUsage = response.usage
+          || (response as unknown as Record<string, unknown>).model_usage
+          || (response as unknown as Record<string, unknown>).billing;
+        
+        let inputTokens = (rawUsage as Record<string, number> | undefined)?.input_tokens
+          ?? (rawUsage as Record<string, number> | undefined)?.prompt_tokens  // OpenAI-style
+          ?? 0;
+        let outputTokens = (rawUsage as Record<string, number> | undefined)?.output_tokens
+          ?? (rawUsage as Record<string, number> | undefined)?.completion_tokens  // OpenAI-style
+          ?? 0;
+
+        // Fallback: estimate from text length if API didn't return usage
+        if (inputTokens === 0 && outputTokens === 0) {
+          const promptLength = buildInstructions(slug).length + buildUserPrompt(toolName).length;
+          inputTokens = Math.ceil(promptLength / 4);    // ~1 token per 4 chars
+          outputTokens = Math.ceil(text.length / 4);
+          console.warn(`⚠️ Usage data unavailable from API. Estimating: ~${inputTokens} input, ~${outputTokens} output tokens`);
+        } else {
+          console.log(`✅ Usage from API: ${inputTokens} input, ${outputTokens} output tokens`);
+        }
+
+        // Perplexity Agent API pricing for third-party models (Claude Opus 4.6)
+        // Input: $15/1M tokens, Output: $75/1M tokens
         const modelCost =
-          inputTokens * 0.000005 + outputTokens * 0.000025;
-        // Estimate search invocations (~1 per 3 citations, minimum 1)
+          inputTokens * 0.000015 + outputTokens * 0.000075;
+        // Web search cost: $5 per 1K requests
         const searchInvocations = Math.max(1, Math.ceil(citations.length / 3));
         const searchCost = searchInvocations * 0.005;
 
@@ -463,277 +486,4 @@ export async function generateManual(
   );
 }
 
-// ──────────────────────────────────────────────
-// Streaming generation (with retry + fallback)
-// ──────────────────────────────────────────────
 
-interface StreamEvent {
-  event: string;
-  data: Record<string, unknown>;
-}
-
-export async function* generateManualStreaming(
-  toolName: string,
-  userApiKey?: string
-): AsyncGenerator<StreamEvent> {
-  const client = getClient(userApiKey);
-  const slug = sanitizeSlug(toolName);
-  const startTime = Date.now();
-
-  yield {
-    event: "started",
-    data: { tool: toolName, slug, timestamp: new Date().toISOString() },
-  };
-
-  for (const model of MODELS) {
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        yield {
-          event: "progress",
-          data: {
-            stage: "generating",
-            message: `Using ${model} (attempt ${attempt}/${MAX_ATTEMPTS})`,
-            model,
-            attempt,
-          },
-        };
-
-        const controller = new AbortController();
-        const timeout = setTimeout(
-          () => controller.abort(),
-          API_TIMEOUT_MS
-        );
-
-        let stream: AsyncIterable<ResponseStreamChunk>;
-        try {
-          console.log("Creating stream request...");
-          const response = await client.responses.create(
-            {
-              model,
-              instructions: buildInstructions(slug),
-              input: buildUserPrompt(toolName),
-              tools: [{ type: "web_search" }],
-              // Removed response_format to enable streaming (incompatible with json_schema)
-              // Schema validation handled via prompt instructions + post-validation
-              max_output_tokens: 65536,
-              stream: true,
-            },
-            { signal: controller.signal }
-          );
-          
-          // Treat response directly as async iterable stream
-          stream = response as AsyncIterable<ResponseStreamChunk>;
-          console.log("Stream created successfully");
-        } catch (err) {
-          clearTimeout(timeout);
-          throw err;
-        }
-
-        let fullText = "";
-        let searchQueries: string[] = [];
-        const searchResultUrls = new Set<string>();
-        let finalResponse: ResponseCreateResponse | undefined;
-        let chunkCount = 0;
-
-        console.log("Starting stream iteration...");
-        try {
-          let iterationCount = 0;
-          const maxIterations = 1000; // Safety limit
-          
-          for await (const chunk of stream) {
-            iterationCount++;
-            chunkCount++;
-            
-            if (iterationCount > maxIterations) {
-              console.error("Too many iterations, breaking");
-              break;
-            }
-            
-            // Debug: Log every chunk we receive
-            console.log(`Chunk ${chunkCount}:`, {
-              type: chunk.type,
-              keys: Object.keys(chunk),
-              hasResponse: "response" in chunk,
-              hasDelta: "delta" in chunk
-            });
-            
-            if (!chunk.type) {
-              console.log("Skipping chunk without type");
-              continue;
-            }
-
-            switch (chunk.type) {
-              case "response.reasoning.started":
-                yield {
-                  event: "progress",
-                  data: {
-                    stage: "reasoning",
-                    message: "Analyzing and planning research...",
-                  },
-                };
-                break;
-
-              case "response.reasoning.search_queries":
-                if ("queries" in chunk && Array.isArray(chunk.queries)) {
-                  searchQueries = chunk.queries as string[];
-                  yield {
-                    event: "progress",
-                    data: {
-                      stage: "searching",
-                      message: `Searching: ${searchQueries.join(", ")}`,
-                      queries: searchQueries,
-                    },
-                  };
-                }
-                break;
-
-              case "response.reasoning.search_results":
-                if ("results" in chunk && Array.isArray(chunk.results)) {
-                  for (const r of chunk.results) {
-                    if (
-                      typeof r === "object" &&
-                      r !== null &&
-                      "url" in r &&
-                      typeof r.url === "string"
-                    ) {
-                      searchResultUrls.add(r.url);
-                    }
-                  }
-                  yield {
-                    event: "progress",
-                    data: {
-                      stage: "search_results",
-                      message: `Found ${searchResultUrls.size} sources`,
-                      sourceCount: searchResultUrls.size,
-                    },
-                  };
-                }
-                break;
-
-              case "response.reasoning.stopped":
-                yield {
-                  event: "progress",
-                  data: {
-                    stage: "stopped",
-                    message: "Reasoning complete, generating content...",
-                  },
-                };
-                break;
-
-              case "response.output_text.delta":
-                if ("delta" in chunk && typeof chunk.delta === "string") {
-                  fullText += chunk.delta;
-                }
-                break;
-
-              case "response.completed":
-                if ("response" in chunk) {
-                  finalResponse =
-                    chunk.response as unknown as ResponseCreateResponse;
-                }
-                break;
-
-              case "response.failed":
-                throw new Error(
-                  `Stream failed: ${JSON.stringify(chunk)}`
-                );
-            }
-          }
-        } finally {
-          clearTimeout(timeout);
-          console.log(`Stream iteration ended. Total chunks: ${chunkCount}`);
-        }
-
-        // Debug: Log extraction results
-        console.log("Text extraction complete:", {
-          textLength: fullText.length,
-          citationCount: searchResultUrls.size,
-          hasResponse: !!finalResponse
-        });
-        
-        // If fullText is empty but we have finalResponse, use output_text convenience property
-        if (!fullText && finalResponse && "output_text" in finalResponse) {
-          console.log("Using output_text convenience property");
-          fullText = String(finalResponse.output_text || "");
-        }
-
-        // Parse and validate
-        const parsed = parseGenerationJSON(fullText);
-        const citations = Array.from(searchResultUrls);
-        const sanitized = sanitizeManualIndices(
-          parsed,
-          citations.length
-        );
-
-        // Calculate cost (Perplexity pricing: $5/$25 per million tokens)
-        const inputTokens =
-          finalResponse?.usage?.input_tokens ?? 0;
-        const outputTokens =
-          finalResponse?.usage?.output_tokens ?? 0;
-        const modelCost =
-          inputTokens * 0.000005 + outputTokens * 0.000025;
-        // Estimate search invocations (~1 per 3 citations, minimum 1)
-        const searchInvocations = Math.max(1, Math.ceil(citations.length / 3));
-        const searchCost = searchInvocations * 0.005;
-
-        const manual: InstructionManual = InstructionManualSchema.parse({
-          ...sanitized,
-          generatedAt: new Date().toISOString(),
-          citations,
-          generationTimeMs: Date.now() - startTime,
-          cost: {
-            model: Math.round(modelCost * 10000) / 10000,
-            search: Math.round(searchCost * 10000) / 10000,
-            total:
-              Math.round((modelCost + searchCost) * 10000) / 10000,
-          },
-        });
-
-        yield { event: "manual", data: { manual } };
-        yield {
-          event: "complete",
-          data: {
-            generationTimeMs: Date.now() - startTime,
-            citationCount: citations.length,
-            featureCount: manual.features.length,
-            model,
-            attempt,
-          },
-        };
-        return; // Success — stop retrying
-      } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Unknown error";
-        yield {
-          event: "progress",
-          data: {
-            stage: "retry",
-            message: `Attempt ${attempt} with ${model} failed: ${msg}`,
-            model,
-            attempt,
-            error: msg,
-          },
-        };
-
-        if (attempt === MAX_ATTEMPTS) {
-          yield {
-            event: "progress",
-            data: {
-              stage: "fallback",
-              message: `Exhausted retries for ${model}, trying next model...`,
-              model,
-            },
-          };
-        }
-      }
-    }
-  }
-
-  yield {
-    event: "error",
-    data: {
-      code: "GENERATION_FAILED",
-      message: `Generation failed after trying all models (${MODELS.join(", ")})`,
-    },
-  };
-}

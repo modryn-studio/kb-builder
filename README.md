@@ -1,6 +1,13 @@
-# KB Builder — Instant Instruction Manuals
+# KB Builder (Tool Copilot — Component 1)
 
-Generate comprehensive instruction manuals for any software tool in ~30 seconds using AI-powered web research.
+**Generate comprehensive instruction manuals for any software tool in ~70 seconds using AI.**
+
+This is **Component 1** of the [Tool Copilot](docs/specs/Vision.md) project:
+- **Component 1 (this repo):** Knowledge Base Builder — Exploration mode ("Teach me everything about this tool")
+- **Components 2 & 3:** Action Monitor + Suggestion Engine — Contextual mode ("Watch me work and help me get better")
+  - See [tool-copilot-monitor repo](https://github.com/modryn-studio/tool-copilot-monitor)
+
+---
 
 ## 🚀 Quick Start
 

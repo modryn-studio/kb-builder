@@ -994,4 +994,117 @@ Total:           ~71s (user-facing time)
 
 ---
 
+## Issue #8: Architecture Overhaul — Async Job Queue (v5.0)
+**Date:** February 13, 2026  
+**Status:** ✅ RESOLVED
+
+### Problem
+Three critical issues identified with the synchronous generation pipeline:
+
+1. **Paying Perplexity markup without web_search**: Had `tools: [{ type: "web_search" }]` disabled since Issue #1 investigation. Claude Opus 4.6 was running at $15/$75 per M tokens (Perplexity markup) but not using the web search that justifies the premium.
+2. **9-month stale knowledge**: Claude's training cutoff is May 2025. Without web_search, manuals had no access to any tool updates from the past 9 months.
+3. **60-90s timeout UX**: Synchronous request-response meant users stared at a loading spinner for 2+ minutes, risking browser/Vercel timeouts.
+
+### Root Cause
+The original synchronous architecture (submit → wait → result) was incompatible with web_search's added latency (60-90s extra). Web search was disabled as a workaround in Issue #1, but this eliminated the primary value proposition of using Perplexity.
+
+### Solution: Sora-Style Async Job Queue
+Full architectural overhaul to decouple submission from processing:
+
+**Architecture:**
+```
+Submit → Job Queue → Background Processing → Poll for Status
+ (instant)  (in-memory)  (fire-and-forget)    (3s intervals)
+```
+
+**New Files Created:**
+- `src/lib/db.ts` — In-memory job store (Map-based, CRUD + rate limiting + queue position)
+- `src/lib/session.ts` — UUID session validation
+- `src/app/api/jobs/create/route.ts` — POST: create job, returns instantly, fires processing
+- `src/app/api/jobs/route.ts` — GET: list jobs by session
+- `src/app/api/jobs/[id]/route.ts` — GET: single job status (for polling)
+- `src/app/api/jobs/[id]/process/route.ts` — POST: actual generation (maxDuration=300)
+- `src/app/api/cron/process/route.ts` — Safety net cron (every 2 min)
+- `src/app/api/manuals/route.ts` — GET: list all generated manuals from Blob
+- `src/app/pending/page.tsx` — Sora-style job tracker with progress bars + notifications
+- `src/app/manuals/page.tsx` — Manual index page
+- `vercel.json` — Cron configuration
+- `docs/specs/Component_1_Spec_v5.0.md` — Comprehensive v5.0 spec document
+
+**Files Modified:**
+- `src/lib/generate.ts` — Re-enabled web_search, removed dead streaming code (~280 lines), fixed usage tracking
+- `src/app/kb-builder/page.tsx` — Complete rewrite for async flow (submit → ack → link to /pending)
+
+### Key Design Decisions
+
+1. **In-memory job store** (not Postgres): @vercel/postgres is deprecated (migrated to Neon). Using `Map<string, GenerationJob>` — jobs lost on restart, acceptable for MVP. Abstracted for easy swap to Neon later.
+2. **Fire-and-forget processing**: Job creation fires `fetch()` to `/api/jobs/[id]/process` without awaiting. Cron safety net catches any missed jobs.
+3. **Session-based isolation**: Each browser gets a `kb_session_id` (UUID in localStorage). Jobs are scoped to session — no cross-user visibility.
+4. **Browser notifications**: Pending page requests notification permission and fires alerts on job completion.
+5. **24h cache**: If a manual for the same tool exists and is <24h old, returns cached result immediately (no new API call).
+
+### API Testing Results
+```
+✅ POST /api/jobs/create  → 201 { id, tool, slug, status: "queued", position }
+✅ GET  /api/jobs          → 200 { jobs: [] }  (filtered by sessionId)
+✅ GET  /api/jobs/[id]     → 200 { full job details, apiKey stripped }
+✅ GET  /api/manuals       → 200 { manuals: [{ slug, tool, featureCount, ... }] }
+```
+
+---
+
+## Issue #9: Usage Tracking Always $0.00
+**Date:** February 13, 2026  
+**Status:** ✅ RESOLVED
+
+### Problem
+Every generation showed `$0.00` total cost despite the API call clearly consuming tokens.
+
+### Root Cause
+The Perplexity Agent API does not reliably populate the `response.usage` object. The code was reading `response.usage?.input_tokens` which returned `0` or `undefined`.
+
+### Solution
+Multi-layered fix:
+
+1. **Debug logging**: Added `console.log("Response usage:", JSON.stringify(response.usage, null, 2))` to inspect the actual response shape.
+2. **Multiple field paths**: Try `response.usage`, `response.model_usage`, `response.billing` (different API versions use different names).
+3. **Alternative key names**: Try both `input_tokens`/`output_tokens` (Perplexity style) and `prompt_tokens`/`completion_tokens` (OpenAI style).
+4. **Fallback estimation**: If all API paths return 0, estimate from text lengths (~1 token per 4 chars).
+5. **Pricing correction**: Updated from $5/$25 per M tokens (wrong — those are direct Claude rates) to $15/$75 per M tokens (Perplexity's third-party model pricing).
+
+### Code Change
+```typescript
+// Fallback: estimate from text length if API didn't return usage
+if (inputTokens === 0 && outputTokens === 0) {
+  const promptLength = buildInstructions(slug).length + buildUserPrompt(toolName).length;
+  inputTokens = Math.ceil(promptLength / 4);
+  outputTokens = Math.ceil(text.length / 4);
+  console.warn(`⚠️ Usage data unavailable from API. Estimating: ~${inputTokens} input, ~${outputTokens} output tokens`);
+}
+```
+
+---
+
+## Issue #10: Web Search Re-enabled
+**Date:** February 13, 2026  
+**Status:** ✅ RESOLVED
+
+### Problem
+`tools: [{ type: "web_search" }]` was commented out during Issue #1 debugging. This meant:
+- Paying Perplexity's premium pricing ($15/$75 per M tokens) without using their unique feature
+- All manuals based on 9-month-old training data (Claude cutoff: May 2025)
+- No citations from live web sources
+
+### Solution
+Re-enabled web search now that the async architecture eliminates timeout concerns:
+```typescript
+tools: [{ type: "web_search" }],
+```
+
+The added latency (60-90s extra) is invisible to users since they submit and leave. The pending page shows progress with estimated timing.
+
+Also removed the entire `generateManualStreaming()` function (~280 lines of dead code) since the SDK streaming is broken and the async architecture doesn't need it.
+
+---
+
 *This log documents technical issues, root causes, and solutions for future reference and team knowledge sharing.*
