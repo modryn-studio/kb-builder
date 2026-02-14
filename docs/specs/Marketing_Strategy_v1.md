@@ -24,6 +24,31 @@
 
 ---
 
+## Target Audience
+
+**Primary:** Knowledge workers using complex professional tools
+- Developers, designers, product managers, analysts, content creators
+- People who use 5+ software tools daily
+- Early adopters who try new tools frequently
+- Power users frustrated by shallow tutorials
+
+**Secondary:** DIY learners mastering popular websites
+- YouTube creators learning platform features
+- Reddit mods understanding advanced moderation
+- GitHub users beyond basic git push/pull
+
+**Not for:** Casual consumer app users (Instagram, TikTok)
+- These tools lack depth worth documenting
+- Users don't search for "Instagram manual"
+
+**ICP characteristics:**
+- Comfortable with complexity
+- Value efficiency and shortcuts
+- Share discoveries with colleagues
+- Likely to donate if they find value
+
+---
+
 ## What Changed from Vision v2
 
 | Decision | Vision v2 | Strategy v1 | Why |
