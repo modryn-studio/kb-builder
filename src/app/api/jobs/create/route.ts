@@ -127,11 +127,15 @@ export async function POST(request: NextRequest) {
     const processUrl = `${baseUrl}/api/jobs/${job.id}/process`;
 
     const triggerProcessing = async (attempt = 1): Promise<void> => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      let timeout: NodeJS.Timeout | undefined;
+      let response: Response | null = null;
+      let fetchError: unknown = null;
 
       try {
-        const response = await fetch(processUrl, {
+        const controller = new AbortController();
+        timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        response = await fetch(processUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -139,26 +143,34 @@ export async function POST(request: NextRequest) {
           },
           signal: controller.signal,
         });
+      } catch (err) {
+        fetchError = err;
+      } finally {
+        // Ensure timeout is always cleared
+        if (timeout !== undefined) {
+          clearTimeout(timeout);
+        }
+      }
 
-        clearTimeout(timeoutId);
+      // Handle fetch error (network, timeout, etc.)
+      if (fetchError) {
+        if (attempt < 3) {
+          console.warn(`Job ${job.id} trigger error (attempt ${attempt}), retrying...`, fetchError);
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+          return triggerProcessing(attempt + 1);
+        }
+        console.error(`Job ${job.id} trigger failed after ${attempt} attempts:`, fetchError);
+        return;
+      }
 
-        if (!response.ok && attempt < 3) {
+      // Handle non-ok response
+      if (response && !response.ok) {
+        if (attempt < 3) {
           console.warn(`Job ${job.id} trigger failed (attempt ${attempt}), retrying...`);
           await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
           return triggerProcessing(attempt + 1);
         }
-
-        if (!response.ok) {
-          console.error(`Job ${job.id} trigger failed after ${attempt} attempts`);
-        }
-      } catch (err) {
-        clearTimeout(timeoutId);
-        if (attempt < 3) {
-          console.warn(`Job ${job.id} trigger error (attempt ${attempt}), retrying...`, err);
-          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-          return triggerProcessing(attempt + 1);
-        }
-        console.error(`Job ${job.id} trigger failed after ${attempt} attempts:`, err);
+        console.error(`Job ${job.id} trigger failed after ${attempt} attempts`);
       }
     };
 
