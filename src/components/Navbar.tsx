@@ -47,7 +47,7 @@ export function Navbar() {
             {!isManualPage && (
               <a
                 href="#manuals"
-                className="text-sm font-body text-muted-foreground hover:text-foreground transition-colors duration-200 hidden sm:block"
+                className="text-sm font-body text-muted-foreground hover:text-foreground transition-colors duration-200 hidden sm:block cursor-pointer"
               >
                 Browse Manuals
               </a>

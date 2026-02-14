@@ -123,7 +123,7 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
             className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 ${
               focused
                 ? "border-primary/40 vault-glow-sm"
-                : "border-border/60 hover:border-border"
+                : "border-border/60"
             }`}
           >
             <Search className="absolute left-4 w-5 h-5 text-muted-foreground" />
@@ -166,7 +166,7 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
             <button
               key={name}
               onClick={() => handleSuggestionClick(name)}
-              className="text-xs font-body text-muted-foreground hover:text-primary border border-border/40 hover:border-primary/30 rounded-md px-2.5 py-1 transition-colors duration-200 bg-transparent"
+              className="text-xs font-body text-muted-foreground hover:text-primary border border-border/40 hover:border-primary/30 rounded-md px-2.5 py-1 transition-colors duration-200 bg-transparent cursor-pointer"
             >
               {name}
             </button>

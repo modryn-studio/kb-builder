@@ -21,13 +21,13 @@ export function Footer() {
           <div className="flex items-center gap-6 text-xs text-muted-foreground font-mono">
             <a
               href="#manuals"
-              className="hover:text-foreground transition-colors duration-200"
+              className="hover:text-foreground transition-colors duration-200 cursor-pointer"
             >
               Manuals
             </a>
             <a
               href="#how-it-works"
-              className="hover:text-foreground transition-colors duration-200"
+              className="hover:text-foreground transition-colors duration-200 cursor-pointer"
             >
               How It Works
             </a>

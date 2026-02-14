@@ -16,7 +16,7 @@ function ManualCard({ manual, index }: { manual: MockManual; index: number }) {
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.5, delay: index * 0.06 }}
       onClick={() => router.push(`/manual/${manual.id}`)}
-      className="group flex flex-col text-left w-full rounded-xl border border-border/50 bg-card/60 hover:bg-card hover:border-primary/20 p-5 transition-all duration-300 hover:shadow-vault"
+      className="group flex flex-col text-left w-full rounded-xl border border-border/50 bg-card/60 hover:bg-card hover:border-primary/20 p-5 transition-all duration-300 hover:shadow-vault cursor-pointer"
     >
       {/* Header */}
       <div className="flex items-start gap-3.5 mb-4">
