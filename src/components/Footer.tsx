@@ -1,4 +1,4 @@
-import { BookOpen } from "lucide-react";
+import { BookOpen, Heart } from "lucide-react";
 
 export function Footer() {
   return (
@@ -18,18 +18,15 @@ export function Footer() {
             Built for serious learners. Free forever.
           </p>
 
-          <div className="flex items-center gap-6 text-xs text-muted-foreground font-mono">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground font-body">
+            <span>☕</span>
             <a
-              href="#manuals"
-              className="hover:text-foreground transition-colors duration-200 cursor-pointer"
+              href="https://ko-fi.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary transition-colors duration-200 cursor-pointer"
             >
-              Manuals
-            </a>
-            <a
-              href="#how-it-works"
-              className="hover:text-foreground transition-colors duration-200 cursor-pointer"
-            >
-              How It Works
+              Support this project
             </a>
           </div>
         </div>
