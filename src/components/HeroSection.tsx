@@ -117,7 +117,7 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.7,
-            delay: 0,
+            delay: 0.1,
             ease: [0.25, 0.46, 0.45, 0.94],
           }}
           className="font-heading text-4xl sm:text-5xl lg:text-6xl font-semibold text-foreground leading-tight tracking-tight mb-6"
@@ -134,13 +134,13 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.7,
-            delay: 0.15,
+            delay: 0.2,
             ease: [0.25, 0.46, 0.45, 0.94],
           }}
           className="relative max-w-xl mx-auto mt-12 mb-4"
         >
           <div
-            className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 outline-none focus-within:outline-none ${
+            className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 ${
               focused
                 ? "border-primary/40 vault-glow-sm"
                 : "border-border/60"
