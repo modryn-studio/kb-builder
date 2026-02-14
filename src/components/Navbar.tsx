@@ -46,13 +46,16 @@ export function Navbar() {
           <div className="flex items-center gap-4">
             {!isManualPage && (
               <a
-                href="https://ko-fi.com/modrynstudio"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cursor-pointer"
+                href="#manuals"
+                className="text-sm font-body text-muted-foreground hover:text-foreground transition-colors duration-200 hidden sm:block cursor-pointer"
               >
+                Browse Manuals
+              </a>
+            )}
+            {!isManualPage && (
+              <a href="#how-it-works" className="cursor-pointer">
                 <Button variant="vault-outline" size="sm">
-                  ☕ Support this project
+                  How It Works
                 </Button>
               </a>
             )}
