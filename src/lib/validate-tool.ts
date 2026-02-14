@@ -57,9 +57,10 @@ Respond with ONLY a JSON object (no markdown, no code blocks), with these exact 
 If the name is gibberish, a random string, or doesn't correspond to any known product, set valid to false.
 If it's ambiguous but could reasonably refer to a known product, set valid to true with your best guess for the normalized name.`;
 
+  let timeout: NodeJS.Timeout | undefined;
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), VALIDATION_TIMEOUT_MS);
+    timeout = setTimeout(() => controller.abort(), VALIDATION_TIMEOUT_MS);
 
     const response = await client.chat.completions.create(
       {
@@ -78,6 +79,7 @@ If it's ambiguous but could reasonably refer to a known product, set valid to tr
     );
 
     clearTimeout(timeout);
+    timeout = undefined;
 
     const rawContent = response.choices?.[0]?.message?.content;
     const text = typeof rawContent === "string" ? rawContent.trim() : "";
@@ -102,6 +104,11 @@ If it's ambiguous but could reasonably refer to a known product, set valid to tr
   } catch (err) {
     console.warn("[ValidateTool] Validation failed, allowing through:", err);
     return failOpen(rawName, `Validation error: ${err instanceof Error ? err.message : "unknown"}`);
+  } finally {
+    // Ensure timeout is always cleared
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
   }
 }
 

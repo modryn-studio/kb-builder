@@ -270,7 +270,6 @@ function StarRatingWidget({
 
   const submitRating = async (value: number) => {
     setRating(value);
-    setSubmitted(true);
     try {
       let sessionId = "";
       if (typeof window !== "undefined") {
@@ -286,9 +285,10 @@ function StarRatingWidget({
         const data = await res.json();
         setAverage(data.average || value);
         setCount(data.count || 1);
+        setSubmitted(true); // Only set after successful submission
       }
     } catch {
-      // best-effort
+      // If it fails, user can try again
     }
   };
 
