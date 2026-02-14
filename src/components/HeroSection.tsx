@@ -164,7 +164,7 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder={focused ? "Type any tool or website..." : ""}
-              className="w-full bg-transparent text-foreground placeholder:text-muted-foreground font-body text-base pl-12 pr-4 py-4 focus:outline-none"
+              className="w-full bg-transparent text-foreground placeholder:text-muted-foreground font-body text-base pl-12 pr-4 py-4 focus:outline-none focus-visible:outline-none"
             />
             <div className="pr-2">
               <Button
