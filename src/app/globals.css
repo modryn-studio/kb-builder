@@ -1,1 +1,176 @@
 @import "tailwindcss";
+
+/* ══════════════════════════════════════════════
+   Knowledge Vault — Dark Library Theme
+   ══════════════════════════════════════════════ */
+
+@theme {
+  /* ── Font Families ── */
+  --font-heading: var(--font-cormorant), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-ibm-plex-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), Menlo, Monaco, Consolas, monospace;
+
+  /* ── Border Radius ── */
+  --radius: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+
+  /* ── Colors ── */
+  --color-background: hsl(228 20% 5%);
+  --color-foreground: hsl(40 18% 88%);
+
+  --color-card: hsl(228 16% 8%);
+  --color-card-foreground: hsl(40 15% 86%);
+
+  --color-popover: hsl(228 16% 8%);
+  --color-popover-foreground: hsl(40 15% 86%);
+
+  --color-primary: hsl(38 58% 50%);
+  --color-primary-foreground: hsl(228 25% 6%);
+
+  --color-secondary: hsl(228 12% 13%);
+  --color-secondary-foreground: hsl(40 12% 76%);
+
+  --color-muted: hsl(228 10% 11%);
+  --color-muted-foreground: hsl(225 8% 50%);
+
+  --color-accent: hsl(38 25% 13%);
+  --color-accent-foreground: hsl(40 18% 88%);
+
+  --color-destructive: hsl(0 62% 50%);
+  --color-destructive-foreground: hsl(40 18% 88%);
+
+  --color-border: hsl(228 10% 15%);
+  --color-input: hsl(228 12% 14%);
+  --color-ring: hsl(38 58% 50%);
+
+  /* Vault tokens */
+  --color-vault-gold: hsl(38 58% 50%);
+  --color-vault-gold-dim: hsl(38 40% 38%);
+  --color-vault-gold-glow: hsl(38 48% 62%);
+  --color-vault-surface: hsl(228 16% 8%);
+  --color-vault-surface-raised: hsl(228 14% 11%);
+  --color-vault-warm: hsl(30 15% 7%);
+
+  --color-success: hsl(152 35% 42%);
+  --color-success-foreground: hsl(228 25% 6%);
+
+  /* ── Shadows ── */
+  --shadow-vault: 0 4px 24px -4px hsl(38 58% 50% / 0.06);
+  --shadow-vault-lg: 0 8px 40px -8px hsl(38 58% 50% / 0.1);
+  --shadow-float: 0 20px 50px -12px hsl(228 20% 2% / 0.6);
+  --shadow-card: 0 1px 3px 0 hsl(228 20% 2% / 0.3), 0 1px 2px -1px hsl(228 20% 2% / 0.3);
+
+  /* ── Keyframes ── */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fade-in 0.5s ease-out forwards;
+  --animate-slide-up: slide-up 0.6s ease-out forwards;
+  --animate-slide-down: slide-down 0.4s ease-out forwards;
+  --animate-glow-pulse: glow-pulse 3s ease-in-out infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-down {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+}
+
+/* ── Base Styles ── */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+/* ── Utility Classes ── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .vault-glow {
+    box-shadow: 0 0 60px -12px hsl(38 58% 50% / 0.15);
+  }
+
+  .vault-glow-sm {
+    box-shadow: 0 0 30px -8px hsl(38 58% 50% / 0.1);
+  }
+
+  .vault-border-glow {
+    border-color: hsl(38 58% 50% / 0.25);
+  }
+
+  .gradient-vault-bg {
+    background: linear-gradient(180deg, hsl(228 20% 5%), hsl(228 16% 8%));
+  }
+
+  .gradient-gold-text {
+    background: linear-gradient(135deg, hsl(38 58% 50%), hsl(38 48% 62%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-dot-pattern {
+    background-image: radial-gradient(hsl(228 10% 15%) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(228 10% 15%) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(228 10% 15%);
+    border-radius: 3px;
+  }
+}
