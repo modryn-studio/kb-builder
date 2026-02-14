@@ -122,18 +122,49 @@ export async function POST(request: NextRequest) {
 
     const position = await getQueuePosition(job.id);
 
-    // ── Fire-and-forget: trigger processing ──
+    // ── Fire-and-forget: trigger processing with retry ──
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const processUrl = `${baseUrl}/api/jobs/${job.id}/process`;
 
-    fetch(processUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-cron-secret": process.env.CRON_SECRET || "dev-secret",
-      },
-    }).catch((err) => {
-      console.error(`Failed to trigger job processing for ${job.id}:`, err);
+    const triggerProcessing = async (attempt = 1): Promise<void> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      try {
+        const response = await fetch(processUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-cron-secret": process.env.CRON_SECRET || "dev-secret",
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok && attempt < 3) {
+          console.warn(`Job ${job.id} trigger failed (attempt ${attempt}), retrying...`);
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+          return triggerProcessing(attempt + 1);
+        }
+
+        if (!response.ok) {
+          console.error(`Job ${job.id} trigger failed after ${attempt} attempts`);
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (attempt < 3) {
+          console.warn(`Job ${job.id} trigger error (attempt ${attempt}), retrying...`, err);
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+          return triggerProcessing(attempt + 1);
+        }
+        console.error(`Job ${job.id} trigger failed after ${attempt} attempts:`, err);
+      }
+    };
+
+    // Fire-and-forget with retry
+    triggerProcessing().catch((err) => {
+      console.error(`Unexpected error triggering job ${job.id}:`, err);
     });
 
     return NextResponse.json(
