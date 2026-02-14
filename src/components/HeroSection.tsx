@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 const HERO_IMAGE =
   "https://images.unsplash.com/photo-1720338099381-a942574719a2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwyfHxib29rcyUyMGF0bW9zcGhlcmV8ZW58MHx8fHwxNzcxMDI2Njk5fDA&ixlib=rb-4.1.0&q=85&w=1920";
@@ -113,22 +112,12 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
 
       {/* Content */}
       <div className="relative z-10 max-w-3xl mx-auto px-6 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
-        >
-          <Badge variant="vault" className="mb-8 text-xs tracking-wide font-mono">
-            Free forever
-          </Badge>
-        </motion.div>
-
         <motion.h1
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.7,
-            delay: 0.1,
+            delay: 0,
             ease: [0.25, 0.46, 0.45, 0.94],
           }}
           className="font-heading text-4xl sm:text-5xl lg:text-6xl font-semibold text-foreground leading-tight tracking-tight mb-6"
@@ -145,13 +134,13 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.7,
-            delay: 0.2,
+            delay: 0.15,
             ease: [0.25, 0.46, 0.45, 0.94],
           }}
           className="relative max-w-xl mx-auto mt-12 mb-4"
         >
           <div
-            className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 ${
+            className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 outline-none focus-within:outline-none ${
               focused
                 ? "border-primary/40 vault-glow-sm"
                 : "border-border/60"
@@ -191,17 +180,6 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
             </div>
           </div>
         </motion.form>
-
-        {/* Free forever badge */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-        >
-          <Badge variant="outline" className="text-[11px] font-mono text-muted-foreground border-border/40">
-            Free forever · No signup required
-          </Badge>
-        </motion.div>
       </div>
 
       {/* Bottom fade */}
