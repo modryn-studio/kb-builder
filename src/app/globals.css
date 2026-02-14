@@ -113,6 +113,12 @@
   outline-offset: 2px;
 }
 
+/* Suppress focus outline on search input */
+input[type="text"]:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 html {
   scrollbar-width: thin;
   scrollbar-color: hsl(228 10% 15%) transparent;
