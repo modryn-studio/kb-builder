@@ -12,12 +12,18 @@ const HERO_IMAGE =
 const TYPEWRITER_EXAMPLES = [
   "Notion",
   "Figma",
-  "YouTube",
   "VS Code",
-  "Reddit",
-  "Slack",
-  "Blender",
+  "Linear",
   "GitHub",
+  "Slack",
+  "ChatGPT",
+  "Obsidian",
+  "Blender",
+  "Cursor",
+  "Airtable",
+  "Adobe XD",
+  "YouTube",
+  "Reddit",
 ];
 
 interface HeroSectionProps {
