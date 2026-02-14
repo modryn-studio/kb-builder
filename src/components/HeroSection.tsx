@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Search, ArrowRight, Sparkles, Clock, Shield } from "lucide-react";
@@ -10,15 +10,15 @@ import { Badge } from "@/components/ui/badge";
 const HERO_IMAGE =
   "https://images.unsplash.com/photo-1720338099381-a942574719a2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwyfHxib29rcyUyMGF0bW9zcGhlcmV8ZW58MHx8fHwxNzcxMDI2Njk5fDA&ixlib=rb-4.1.0&q=85&w=1920";
 
-const SUGGESTIONS = [
+const TYPEWRITER_EXAMPLES = [
   "Figma",
   "VS Code",
   "Notion",
   "Slack",
-  "Obsidian",
-  "Cursor",
   "Linear",
   "Arc Browser",
+  "Obsidian",
+  "Cursor",
 ];
 
 interface HeroSectionProps {
@@ -28,7 +28,58 @@ interface HeroSectionProps {
 export function HeroSection({ onGenerate }: HeroSectionProps) {
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
+  const [typewriterText, setTypewriterText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const animationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Typewriter animation — cycles through examples in the search bar
+  useEffect(() => {
+    if (focused || query) {
+      setTypewriterText("");
+      if (animationRef.current) clearTimeout(animationRef.current);
+      return;
+    }
+
+    let wordIndex = 0;
+    let charIndex = 0;
+    let phase: "typing" | "pausing" | "deleting" = "typing";
+    let cancelled = false;
+
+    function tick() {
+      if (cancelled) return;
+      const word = TYPEWRITER_EXAMPLES[wordIndex];
+
+      if (phase === "typing") {
+        charIndex++;
+        setTypewriterText(word.slice(0, charIndex));
+        if (charIndex >= word.length) {
+          phase = "pausing";
+          animationRef.current = setTimeout(tick, 3000);
+        } else {
+          animationRef.current = setTimeout(tick, 55 + Math.random() * 35);
+        }
+      } else if (phase === "pausing") {
+        phase = "deleting";
+        animationRef.current = setTimeout(tick, 40);
+      } else if (phase === "deleting") {
+        charIndex--;
+        setTypewriterText(word.slice(0, charIndex));
+        if (charIndex <= 0) {
+          phase = "typing";
+          wordIndex = (wordIndex + 1) % TYPEWRITER_EXAMPLES.length;
+          animationRef.current = setTimeout(tick, 500);
+        } else {
+          animationRef.current = setTimeout(tick, 35);
+        }
+      }
+    }
+
+    animationRef.current = setTimeout(tick, 800);
+    return () => {
+      cancelled = true;
+      if (animationRef.current) clearTimeout(animationRef.current);
+    };
+  }, [focused, query]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,13 +88,8 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
     }
   };
 
-  const handleSuggestionClick = (name: string) => {
-    setQuery(name);
-    onGenerate(name);
-  };
-
   return (
-    <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[75vh] flex items-center justify-center overflow-hidden">
       {/* Background image with heavy overlay */}
       <div className="absolute inset-0">
         <Image
@@ -64,9 +110,6 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
         />
         <div className="absolute inset-0 bg-background/70" />
       </div>
-
-      {/* Subtle dot pattern */}
-      <div className="absolute inset-0 bg-dot-pattern opacity-[0.03]" />
 
       {/* Content */}
       <div className="relative z-10 max-w-3xl mx-auto px-6 text-center">
@@ -90,7 +133,9 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           }}
           className="font-heading text-4xl sm:text-5xl lg:text-6xl font-semibold text-foreground leading-tight tracking-tight mb-6"
         >
-          Master any software tool.
+          The best instruction manual for{" "}
+          <span className="gradient-gold-text">any tool or website</span>{" "}
+          on the internet.
         </motion.h1>
 
         <motion.p
@@ -103,8 +148,8 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           }}
           className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed font-body"
         >
-          AI-generated instruction manual. Every feature documented, every
-          shortcut revealed, every hidden capability uncovered.
+          AI reads the entire internet — official docs, tutorials, Reddit,
+          GitHub — and creates one comprehensive manual in 2 minutes.
         </motion.p>
 
         {/* Search input */}
@@ -117,7 +162,7 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
             delay: 0.35,
             ease: [0.25, 0.46, 0.45, 0.94],
           }}
-          className="relative max-w-xl mx-auto mb-6"
+          className="relative max-w-xl mx-auto mb-10"
         >
           <div
             className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 ${
@@ -127,6 +172,15 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
             }`}
           >
             <Search className="absolute left-4 w-5 h-5 text-muted-foreground" />
+
+            {/* Typewriter overlay */}
+            {!query && !focused && typewriterText && (
+              <span className="absolute left-12 top-1/2 -translate-y-1/2 text-base font-body text-foreground/70 pointer-events-none select-none">
+                {typewriterText}
+                <span className="animate-pulse ml-px text-primary/60">|</span>
+              </span>
+            )}
+
             <input
               ref={inputRef}
               type="text"
@@ -134,7 +188,7 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder="Enter any software tool..."
+              placeholder={focused ? "Type any tool or website..." : ""}
               className="w-full bg-transparent text-foreground placeholder:text-muted-foreground font-body text-base pl-12 pr-4 py-4 focus:outline-none"
             />
             <div className="pr-2">
@@ -151,27 +205,6 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
             </div>
           </div>
         </motion.form>
-
-        {/* Suggestions */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="flex flex-wrap justify-center gap-2 mb-12"
-        >
-          <span className="text-xs text-muted-foreground font-mono mr-1 self-center">
-            Try:
-          </span>
-          {SUGGESTIONS.slice(0, 5).map((name) => (
-            <button
-              key={name}
-              onClick={() => handleSuggestionClick(name)}
-              className="text-xs font-body text-muted-foreground hover:text-primary border border-border/40 hover:border-primary/30 rounded-md px-2.5 py-1 transition-colors duration-200 bg-transparent cursor-pointer"
-            >
-              {name}
-            </button>
-          ))}
-        </motion.div>
 
         {/* Trust indicators */}
         <motion.div
