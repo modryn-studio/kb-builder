@@ -113,11 +113,28 @@ export function ManualBrowser() {
         </motion.div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
           {MANUALS.map((manual, i) => (
             <ManualCard key={manual.id} manual={manual} index={i} />
           ))}
         </div>
+
+        {/* Browse all link */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="text-center"
+        >
+          <a
+            href="#manuals"
+            className="inline-flex items-center gap-2 text-sm font-body text-muted-foreground hover:text-primary transition-colors duration-200 group"
+          >
+            Browse All Manuals
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-200" />
+          </a>
+        </motion.div>
       </div>
     </section>
   );

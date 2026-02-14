@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Search, ArrowRight, Sparkles, Clock, Shield } from "lucide-react";
+import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -11,14 +11,14 @@ const HERO_IMAGE =
   "https://images.unsplash.com/photo-1720338099381-a942574719a2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwyfHxib29rcyUyMGF0bW9zcGhlcmV8ZW58MHx8fHwxNzcxMDI2Njk5fDA&ixlib=rb-4.1.0&q=85&w=1920";
 
 const TYPEWRITER_EXAMPLES = [
-  "Figma",
-  "VS Code",
   "Notion",
+  "Figma",
+  "YouTube",
+  "VS Code",
+  "Reddit",
   "Slack",
-  "Linear",
-  "Arc Browser",
-  "Obsidian",
-  "Cursor",
+  "Blender",
+  "GitHub",
 ];
 
 interface HeroSectionProps {
@@ -138,20 +138,6 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           on the internet.
         </motion.h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.7,
-            delay: 0.2,
-            ease: [0.25, 0.46, 0.45, 0.94],
-          }}
-          className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed font-body"
-        >
-          AI reads the entire internet — official docs, tutorials, Reddit,
-          GitHub — and creates one comprehensive manual in 2 minutes.
-        </motion.p>
-
         {/* Search input */}
         <motion.form
           onSubmit={handleSubmit}
@@ -159,10 +145,10 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.7,
-            delay: 0.35,
+            delay: 0.2,
             ease: [0.25, 0.46, 0.45, 0.94],
           }}
-          className="relative max-w-xl mx-auto mb-10"
+          className="relative max-w-xl mx-auto mt-12 mb-4"
         >
           <div
             className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 ${
@@ -206,25 +192,15 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           </div>
         </motion.form>
 
-        {/* Trust indicators */}
+        {/* Free forever badge */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="flex items-center justify-center gap-6 text-xs text-muted-foreground font-mono"
+          transition={{ duration: 0.6, delay: 0.4 }}
         >
-          <span className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-primary/70" />
-            2-min generation
-          </span>
-          <span className="hidden sm:flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-primary/70" />
-            Live web research
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-primary/70" />
-            No signup required
-          </span>
+          <Badge variant="outline" className="text-[11px] font-mono text-muted-foreground border-border/40">
+            Free forever · No signup required
+          </Badge>
         </motion.div>
       </div>
 
