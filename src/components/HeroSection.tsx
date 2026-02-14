@@ -137,10 +137,10 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
             delay: 0.2,
             ease: [0.25, 0.46, 0.45, 0.94],
           }}
-          className="relative max-w-xl mx-auto mt-12 mb-4"
+          className="relative max-w-xl mx-auto mt-12 mb-4 outline-none"
         >
           <div
-            className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 ${
+            className={`relative flex items-center rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-300 outline-none focus-within:outline-none ${
               focused
                 ? "border-primary/40 vault-glow-sm"
                 : "border-border/60"
