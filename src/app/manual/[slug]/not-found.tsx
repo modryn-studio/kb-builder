@@ -2,11 +2,11 @@ import Link from "next/link";
 
 export default function ManualNotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="max-w-md text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
           <svg
-            className="h-8 w-8 text-slate-400"
+            className="h-8 w-8 text-muted-foreground"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -19,13 +19,13 @@ export default function ManualNotFound() {
             />
           </svg>
         </div>
-        <h2 className="text-xl font-bold text-slate-900">Manual Not Found</h2>
-        <p className="mt-2 text-sm text-slate-600">
+        <h2 className="font-heading text-xl font-bold text-foreground">Manual Not Found</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
           This manual does not exist or has not been generated yet.
         </p>
         <Link
-          href="/kb-builder"
-          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          href="/"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:brightness-110"
         >
           Generate a Manual
         </Link>

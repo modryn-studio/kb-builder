@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  BookOpen,
   Clock,
-  Library,
   Loader2,
   CheckCircle,
   XCircle,
@@ -12,9 +10,13 @@ import {
   Copy,
   Check,
   RefreshCw,
-  Plus,
 } from "lucide-react";
 import Link from "next/link";
+import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 // ──────────────────────────────────────────────
 // Types
@@ -113,33 +115,33 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
     <div
       className={`rounded-xl border p-5 transition-colors ${
         job.status === "processing"
-          ? "border-blue-200 bg-blue-50/50"
+          ? "border-primary/30 bg-primary/5"
           : job.status === "completed"
-            ? "border-green-200 bg-green-50/50"
+            ? "border-success/30 bg-success/5"
             : job.status === "failed"
-              ? "border-red-200 bg-red-50/50"
-              : "border-slate-200 bg-white"
+              ? "border-destructive/30 bg-destructive/5"
+              : "border-border bg-card"
       }`}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3">
           {/* Status icon */}
           {job.status === "queued" && (
-            <Clock className="mt-0.5 h-5 w-5 text-slate-400" />
+            <Clock className="mt-0.5 h-5 w-5 text-muted-foreground" />
           )}
           {job.status === "processing" && (
-            <Loader2 className="mt-0.5 h-5 w-5 animate-spin text-blue-500" />
+            <Loader2 className="mt-0.5 h-5 w-5 animate-spin text-primary" />
           )}
           {job.status === "completed" && (
-            <CheckCircle className="mt-0.5 h-5 w-5 text-green-500" />
+            <CheckCircle className="mt-0.5 h-5 w-5 text-success" />
           )}
           {job.status === "failed" && (
-            <XCircle className="mt-0.5 h-5 w-5 text-red-500" />
+            <XCircle className="mt-0.5 h-5 w-5 text-destructive" />
           )}
 
           <div>
-            <h3 className="font-semibold text-slate-900">{job.toolName}</h3>
-            <p className="mt-0.5 text-sm text-slate-500">
+            <h3 className="font-heading text-lg font-semibold text-foreground">{job.toolName}</h3>
+            <p className="mt-0.5 text-sm text-muted-foreground">
               {job.status === "queued" && "Waiting in queue..."}
               {job.status === "processing" && (
                 <>
@@ -156,7 +158,7 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
                 </>
               )}
               {job.status === "failed" && (
-                <span className="text-red-600">
+                <span className="text-destructive">
                   {job.errorMessage || "Generation failed"}
                 </span>
               )}
@@ -165,39 +167,20 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
         </div>
 
         {/* Status badge */}
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            job.status === "queued"
-              ? "bg-slate-100 text-slate-600"
-              : job.status === "processing"
-                ? "bg-blue-100 text-blue-700"
-                : job.status === "completed"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-red-100 text-red-700"
-          }`}
-        >
-          {job.status === "queued" && "Queued"}
-          {job.status === "processing" && "Processing"}
-          {job.status === "completed" && "Completed"}
-          {job.status === "failed" && "Failed"}
-        </span>
+        {job.status === "queued" && <Badge variant="vault-muted">Queued</Badge>}
+        {job.status === "processing" && <Badge variant="vault">Processing</Badge>}
+        {job.status === "completed" && (
+          <Badge className="border-transparent bg-success/15 text-success">Completed</Badge>
+        )}
+        {job.status === "failed" && <Badge variant="destructive">Failed</Badge>}
       </div>
 
       {/* Progress bar for processing */}
       {(job.status === "processing" || job.status === "queued") && (
         <div className="mt-3">
-          <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-            <div
-              className={`h-full rounded-full transition-all duration-1000 ${
-                job.status === "processing"
-                  ? "bg-blue-500"
-                  : "bg-slate-300"
-              }`}
-              style={{ width: `${job.status === "processing" ? progressPercent : 0}%` }}
-            />
-          </div>
+          <Progress value={job.status === "processing" ? progressPercent : 0} className="h-2" />
           {job.status === "processing" && (
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               ~{Math.max(0, Math.round((EXPECTED_GENERATION_MS - elapsed) / 1000))}s remaining
             </p>
           )}
@@ -207,17 +190,13 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
       {/* Actions for completed */}
       {job.status === "completed" && job.shareableUrl && (
         <div className="mt-3 flex items-center gap-2">
-          <a
-            href={job.shareableUrl}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            View Manual
-          </a>
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
+          <Button variant="vault" size="sm" asChild>
+            <a href={job.shareableUrl}>
+              <ExternalLink className="h-3.5 w-3.5" />
+              View Manual
+            </a>
+          </Button>
+          <Button variant="vault-outline" size="sm" onClick={handleCopy}>
             {copied ? (
               <>
                 <Check className="h-3.5 w-3.5" />
@@ -229,9 +208,9 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
                 Copy Link
               </>
             )}
-          </button>
+          </Button>
           {job.generationTimeMs && (
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-muted-foreground">
               Generated in {formatTime(job.generationTimeMs)}
               {job.coverageScore > 0 &&
                 ` · ${Math.round(job.coverageScore * 100)}% coverage`}
@@ -243,13 +222,15 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
       {/* Actions for failed */}
       {job.status === "failed" && (
         <div className="mt-3">
-          <button
+          <Button
+            variant="vault-outline"
+            size="sm"
             onClick={() => onRetry(job)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
+            className="border-destructive/30 text-destructive hover:bg-destructive/10"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Retry
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -364,90 +345,47 @@ export default function PendingPage() {
     [fetchJobs]
   );
 
-  const activeCount = jobs.filter(
-    (j) => j.status === "queued" || j.status === "processing"
-  ).length;
-
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <BookOpen className="h-8 w-8 text-blue-600" />
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">KB Builder</h1>
-              <p className="text-sm text-slate-500">Your Generations</p>
-            </div>
-          </div>
-          <nav className="flex items-center gap-4">
-            <Link
-              href="/kb-builder"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              <Plus className="h-4 w-4" />
-              New
-            </Link>
-            <Link
-              href="/pending"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-900"
-            >
-              <Clock className="h-4 w-4" />
-              Pending
-              {activeCount > 0 && (
-                <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
-                  {activeCount}
-                </span>
-              )}
-            </Link>
-            <Link
-              href="/manuals"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              <Library className="h-4 w-4" />
-              Manuals
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background">
+      <Navbar />
 
-      <main className="mx-auto max-w-4xl px-6 py-8">
+      <main className="mx-auto max-w-4xl px-6 pt-24 pb-12">
+        <div className="mb-8">
+          <h1 className="font-heading text-3xl font-bold text-foreground">Your Generations</h1>
+          <p className="mt-1 text-muted-foreground">
+            Track progress and access your generated manuals.
+          </p>
+        </div>
+
         {/* Notification banner */}
         {!notificationsEnabled && typeof window !== "undefined" && "Notification" in window && jobs.length > 0 && (
-          <div className="mb-6 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm text-amber-800">
-              Enable notifications to know when your manuals are ready — even if you close this tab.
+          <div className="mb-6 flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <p className="text-sm text-foreground">
+              Enable notifications to know when your manuals are ready.
             </p>
-            <button
-              onClick={requestNotifications}
-              className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-300"
-            >
-              Enable Notifications
-            </button>
+            <Button variant="vault" size="sm" onClick={requestNotifications}>
+              Enable
+            </Button>
           </div>
         )}
 
         {/* Jobs list */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : jobs.length === 0 ? (
-          <div className="rounded-2xl border bg-white p-12 text-center shadow-sm">
-            <Clock className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-            <h2 className="text-lg font-semibold text-slate-700">
+          <div className="rounded-2xl border border-border bg-card p-12 text-center">
+            <Clock className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h2 className="font-heading text-lg font-semibold text-foreground">
               No generations yet
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-muted-foreground">
               Submit a tool name to generate your first instruction manual.
             </p>
-            <Link
-              href="/kb-builder"
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" />
-              Generate a Manual
-            </Link>
+            <Button variant="vault" className="mt-4" asChild>
+              <Link href="/">Generate a Manual</Link>
+            </Button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -457,6 +395,8 @@ export default function PendingPage() {
           </div>
         )}
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -50,7 +50,7 @@ function CitationLinks({
             href={citations[idx]}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-4 w-4 items-center justify-center rounded bg-blue-100 text-[10px] font-medium text-blue-700 hover:bg-blue-200"
+            className="inline-flex h-4 w-4 items-center justify-center rounded bg-primary/15 text-[10px] font-medium text-primary hover:bg-primary/25"
             title={citations[idx]}
           >
             {idx + 1}
@@ -67,14 +67,14 @@ function CitationLinks({
 
 function PowerBadge({ level }: { level: string }) {
   const colors: Record<string, string> = {
-    basic: "bg-green-100 text-green-700",
-    beginner: "bg-green-100 text-green-700",
-    intermediate: "bg-yellow-100 text-yellow-700",
-    advanced: "bg-red-100 text-red-700",
+    basic: "bg-success/15 text-success",
+    beginner: "bg-success/15 text-success",
+    intermediate: "bg-primary/15 text-primary",
+    advanced: "bg-destructive/15 text-destructive",
   };
   return (
     <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colors[level] || "bg-slate-100 text-slate-600"}`}
+      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colors[level] || "bg-secondary text-muted-foreground"}`}
     >
       {level}
     </span>
@@ -83,13 +83,13 @@ function PowerBadge({ level }: { level: string }) {
 
 function SeverityBadge({ severity }: { severity: string }) {
   const colors: Record<string, string> = {
-    minor: "bg-yellow-100 text-yellow-700",
-    moderate: "bg-orange-100 text-orange-700",
-    major: "bg-red-100 text-red-700",
+    minor: "bg-primary/15 text-primary",
+    moderate: "bg-primary/25 text-primary",
+    major: "bg-destructive/15 text-destructive",
   };
   return (
     <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colors[severity] || "bg-slate-100 text-slate-600"}`}
+      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colors[severity] || "bg-secondary text-muted-foreground"}`}
     >
       {severity}
     </span>
@@ -116,25 +116,25 @@ function Collapsible({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="rounded-xl border bg-white shadow-sm">
+    <div className="rounded-xl border border-border bg-card">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-3 px-6 py-4 text-left hover:bg-slate-50"
+        className="flex w-full items-center gap-3 px-6 py-4 text-left hover:bg-secondary/50"
       >
         {open ? (
-          <ChevronDown className="h-5 w-5 text-slate-400" />
+          <ChevronDown className="h-5 w-5 text-muted-foreground" />
         ) : (
-          <ChevronRight className="h-5 w-5 text-slate-400" />
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
         )}
-        <Icon className="h-5 w-5 text-blue-600" />
-        <span className="flex-1 font-semibold text-slate-900">{title}</span>
+        <Icon className="h-5 w-5 text-primary" />
+        <span className="flex-1 font-heading font-semibold text-foreground">{title}</span>
         {count !== undefined && (
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-sm text-slate-600">
+          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-sm text-muted-foreground">
             {count}
           </span>
         )}
       </button>
-      {open && <div className="border-t px-6 py-4">{children}</div>}
+      {open && <div className="border-t border-border px-6 py-4">{children}</div>}
     </div>
   );
 }
@@ -169,7 +169,7 @@ function SectionFeedback({
 
   if (sent !== null) {
     return (
-      <span className="text-xs text-slate-400">Thanks!</span>
+      <span className="text-xs text-muted-foreground">Thanks!</span>
     );
   }
 
@@ -177,14 +177,14 @@ function SectionFeedback({
     <span className="inline-flex gap-1">
       <button
         onClick={() => send(true)}
-        className="rounded p-0.5 text-slate-400 hover:bg-green-50 hover:text-green-600"
+        className="rounded p-0.5 text-muted-foreground hover:bg-success/10 hover:text-success"
         title="Helpful"
       >
         <ThumbsUp className="h-3 w-3" />
       </button>
       <button
         onClick={() => send(false)}
-        className="rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+        className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         title="Not helpful"
       >
         <ThumbsDown className="h-3 w-3" />
@@ -212,8 +212,8 @@ function TableOfContents({
   activeId: string;
 }) {
   return (
-    <nav className="sticky top-6 rounded-xl border bg-white p-4 shadow-sm">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+    <nav className="sticky top-6 rounded-xl border border-border bg-card p-4">
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Contents
       </h3>
       <ul className="space-y-1">
@@ -223,14 +223,14 @@ function TableOfContents({
               href={`#${e.id}`}
               className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
                 activeId === e.id
-                  ? "bg-blue-50 font-medium text-blue-700"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  ? "bg-primary/10 font-medium text-primary"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <span className="w-4 text-center text-xs">{e.icon}</span>
               <span className="flex-1 truncate">{e.label}</span>
               {e.count !== undefined && (
-                <span className="text-xs text-slate-400">{e.count}</span>
+                <span className="text-xs text-muted-foreground">{e.count}</span>
               )}
             </a>
           </li>
@@ -311,19 +311,19 @@ function StarRatingWidget({
                   ? "fill-yellow-400 text-yellow-400"
                   : star <= Math.round(average) && !hover && !rating
                     ? "fill-yellow-200 text-yellow-300"
-                    : "text-slate-300"
+                    : "text-muted-foreground"
               }`}
             />
           </button>
         ))}
       </div>
       {count > 0 && (
-        <span className="text-sm text-slate-500">
+        <span className="text-sm text-muted-foreground">
           {average.toFixed(1)} ({count} {count === 1 ? "rating" : "ratings"})
         </span>
       )}
       {submitted && (
-        <span className="text-sm text-green-600">Thanks!</span>
+        <span className="text-sm text-success">Thanks!</span>
       )}
     </div>
   );
@@ -403,15 +403,15 @@ function FeedbackModal({
   if (sent) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-        <div className="w-full max-w-md rounded-xl border bg-white p-8 text-center shadow-xl" onClick={(e) => e.stopPropagation()}>
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <Check className="h-6 w-6 text-green-600" />
+        <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+            <Check className="h-6 w-6 text-success" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900">Feedback Sent!</h3>
-          <p className="mt-2 text-sm text-slate-600">Thanks for helping us improve.</p>
+          <h3 className="text-lg font-heading font-bold text-foreground">Feedback Sent!</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Thanks for helping us improve.</p>
           <button
             onClick={onClose}
-            className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:brightness-110"
           >
             Close
           </button>
@@ -422,12 +422,12 @@ function FeedbackModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h3 className="text-lg font-bold text-slate-900">Send Feedback</h3>
+      <div className="w-full max-w-lg rounded-xl border border-border bg-card" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h3 className="text-lg font-heading font-bold text-foreground">Send Feedback</h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -443,19 +443,19 @@ function FeedbackModal({
                 onClick={() => setType(t.value)}
                 className={`rounded-lg border-2 p-3 text-left transition ${
                   type === t.value
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-slate-200 hover:border-slate-300"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-muted-foreground/30"
                 }`}
               >
-                <div className="text-sm font-medium text-slate-900">{t.label}</div>
-                <div className="text-xs text-slate-500">{t.description}</div>
+                <div className="text-sm font-medium text-foreground">{t.label}</div>
+                <div className="text-xs text-muted-foreground">{t.description}</div>
               </button>
             ))}
           </div>
 
           {/* Message */}
           <div>
-            <label htmlFor="fb-message" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="fb-message" className="block text-sm font-medium text-foreground mb-1">
               Message
             </label>
             <textarea
@@ -466,15 +466,15 @@ function FeedbackModal({
               rows={4}
               maxLength={5000}
               required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            <div className="mt-1 text-right text-xs text-slate-400">{message.length}/5000</div>
+            <div className="mt-1 text-right text-xs text-muted-foreground">{message.length}/5000</div>
           </div>
 
           {/* Email (optional) */}
           <div>
-            <label htmlFor="fb-email" className="block text-sm font-medium text-slate-700 mb-1">
-              Email <span className="text-slate-400 font-normal">(optional, for follow-up)</span>
+            <label htmlFor="fb-email" className="block text-sm font-medium text-foreground mb-1">
+              Email <span className="text-muted-foreground font-normal">(optional, for follow-up)</span>
             </label>
             <input
               id="fb-email"
@@ -482,26 +482,26 @@ function FeedbackModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+            <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
           )}
 
           <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={sending || !message.trim()}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:brightness-110 disabled:opacity-50"
             >
               <Send className="h-4 w-4" />
               {sending ? "Sending..." : "Send Feedback"}
@@ -727,29 +727,29 @@ export default function ManualContent({
     tocEntries.push({ id: "citations", label: "Sources", icon: "🔗", count: manual.citations.length });
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm">
+      <header className="border-b border-border bg-card/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <BookOpen className="h-8 w-8 text-blue-600" />
-            <span className="text-lg font-bold text-slate-900">
+            <BookOpen className="h-8 w-8 text-primary" />
+            <span className="text-lg font-heading font-bold text-foreground">
               KB Builder
             </span>
           </div>
           <a
-            href="/kb-builder"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            href="/"
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary"
           >
-            ← Back to Builder
+            ← Back Home
           </a>
           <button
             onClick={handleCopyLink}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary"
           >
             {copied ? (
               <>
-                <Check className="h-3.5 w-3.5 text-green-600" />
+                <Check className="h-3.5 w-3.5 text-success" />
                 Copied!
               </>
             ) : (
@@ -761,7 +761,7 @@ export default function ManualContent({
           </button>
           <button
             onClick={exportAsMarkdown}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary"
             title="Export as Markdown file"
           >
             <Download className="h-3.5 w-3.5" />
@@ -770,7 +770,7 @@ export default function ManualContent({
           <button
             onClick={loadVersionHistory}
             disabled={loadingVersions}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
             title="View version history"
           >
             <History className="h-3.5 w-3.5" />
@@ -778,7 +778,7 @@ export default function ManualContent({
           </button>
           <button
             onClick={() => setShowFeedbackModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
             title="Send feedback or report an issue"
           >
             <MessageSquare className="h-3.5 w-3.5" />
@@ -790,37 +790,37 @@ export default function ManualContent({
       {/* Version History Modal */}
       {showVersions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-white shadow-xl">
-            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-4">
-              <h3 className="text-lg font-bold text-slate-900">Version History</h3>
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-card">
+            <div className="sticky top-0 flex items-center justify-between border-b border-border bg-card px-6 py-4">
+              <h3 className="text-lg font-heading font-bold text-foreground">Version History</h3>
               <button
                 onClick={() => setShowVersions(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-6">
               {versions.length === 0 ? (
-                <p className="text-center text-slate-500">No previous versions found.</p>
+                <p className="text-center text-muted-foreground">No previous versions found.</p>
               ) : (
                 <div className="space-y-3">
                   {versions.map((v) => (
                     <div
                       key={v.version}
-                      className="flex items-center justify-between rounded-lg border p-4 hover:bg-slate-50"
+                      className="flex items-center justify-between rounded-lg border border-border p-4 hover:bg-secondary/50"
                     >
                       <div>
-                        <p className="font-medium text-slate-900">
+                        <p className="font-medium text-foreground">
                           {new Date(v.uploadedAt).toLocaleString()}
                         </p>
-                        <p className="text-xs text-slate-500">{v.version}</p>
+                        <p className="text-xs text-muted-foreground">{v.version}</p>
                       </div>
                       <a
                         href={v.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:brightness-110"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         View JSON
@@ -845,11 +845,11 @@ export default function ManualContent({
           <main className="min-w-0 flex-1" ref={mainRef}>
         {/* Coverage Warning */}
         {manual.coverageScore < 0.5 && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
-            <AlertCircle className="h-5 w-5 shrink-0 text-yellow-600" />
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <AlertCircle className="h-5 w-5 shrink-0 text-primary" />
             <div>
-              <p className="font-medium text-yellow-800">Limited Coverage</p>
-              <p className="text-sm text-yellow-700">
+              <p className="font-medium text-foreground">Limited Coverage</p>
+              <p className="text-sm text-muted-foreground">
                 This manual has a coverage score of{" "}
                 {Math.round(manual.coverageScore * 100)}%. Some information may
                 be incomplete. Consider regenerating for better results.
@@ -860,8 +860,8 @@ export default function ManualContent({
 
         {/* Title & Overview */}
         <div className="mb-8" id="overview" data-toc-id="overview">
-          <h1 className="text-3xl font-bold text-slate-900">{manual.tool}</h1>
-          <p className="mt-2 text-lg text-slate-600">
+          <h1 className="text-3xl font-heading font-bold text-foreground">{manual.tool}</h1>
+          <p className="mt-2 text-lg text-muted-foreground">
             {manual.overview.whatItIs}
           </p>
 
@@ -874,13 +874,13 @@ export default function ManualContent({
             {manual.overview.platforms.map((p) => (
               <span
                 key={p}
-                className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700"
+                className="rounded-full bg-primary/15 px-3 py-1 text-sm text-primary"
               >
                 {p}
               </span>
             ))}
             {manual.overview.pricing && (
-              <span className="rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
+              <span className="rounded-full bg-success/15 px-3 py-1 text-sm text-success">
                 {manual.overview.pricing}
               </span>
             )}
@@ -888,14 +888,14 @@ export default function ManualContent({
 
           {manual.overview.primaryUseCases.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Primary Use Cases
               </h3>
               <ul className="mt-2 flex flex-wrap gap-2">
                 {manual.overview.primaryUseCases.map((uc) => (
                   <li
                     key={uc}
-                    className="rounded-lg bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                    className="rounded-lg bg-secondary px-3 py-1 text-sm text-secondary-foreground"
                   >
                     {uc}
                   </li>
@@ -907,41 +907,41 @@ export default function ManualContent({
 
         {/* Summary Cards */}
         <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-          <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-2xl font-bold text-blue-600">
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <div className="text-2xl font-bold text-primary">
               {manual.features.length}
             </div>
-            <div className="text-xs text-slate-500">Features</div>
+            <div className="text-xs text-muted-foreground">Features</div>
           </div>
-          <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-2xl font-bold text-purple-600">
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <div className="text-2xl font-bold text-primary">
               {manual.shortcuts.length}
             </div>
-            <div className="text-xs text-slate-500">Shortcuts</div>
+            <div className="text-xs text-muted-foreground">Shortcuts</div>
           </div>
-          <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-2xl font-bold text-green-600">
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <div className="text-2xl font-bold text-primary">
               {manual.workflows.length}
             </div>
-            <div className="text-xs text-slate-500">Workflows</div>
+            <div className="text-xs text-muted-foreground">Workflows</div>
           </div>
-          <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-2xl font-bold text-yellow-600">
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <div className="text-2xl font-bold text-primary">
               {manual.tips.length}
             </div>
-            <div className="text-xs text-slate-500">Tips</div>
+            <div className="text-xs text-muted-foreground">Tips</div>
           </div>
-          <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-2xl font-bold text-red-600">
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <div className="text-2xl font-bold text-primary">
               {manual.commonMistakes.length}
             </div>
-            <div className="text-xs text-slate-500">Mistakes</div>
+            <div className="text-xs text-muted-foreground">Mistakes</div>
           </div>
-          <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-2xl font-bold text-slate-600">
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <div className="text-2xl font-bold text-foreground">
               {Math.round(manual.coverageScore * 100)}%
             </div>
-            <div className="text-xs text-slate-500">Coverage</div>
+            <div className="text-xs text-muted-foreground">Coverage</div>
           </div>
         </div>
 
@@ -961,10 +961,10 @@ export default function ManualContent({
                 {features.map((feature) => (
                   <div
                     key={feature.id}
-                    className="rounded-lg border border-slate-100 bg-slate-50 p-4"
+                    className="rounded-lg border border-border bg-card p-4"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-slate-900">
+                      <h4 className="font-semibold text-foreground">
                         {feature.name}
                         <CitationLinks
                           sourceIndices={feature.sourceIndices}
@@ -976,37 +976,37 @@ export default function ManualContent({
                         <PowerBadge level={feature.powerLevel} />
                       </div>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {feature.description}
                     </p>
                     <div className="mt-2 text-sm">
-                      <span className="font-medium text-slate-700">
+                      <span className="font-medium text-foreground/80">
                         What it&apos;s for:{" "}
                       </span>
-                      <span className="text-slate-600">
+                      <span className="text-muted-foreground">
                         {feature.whatItsFor}
                       </span>
                     </div>
                     <div className="mt-1 text-sm">
-                      <span className="font-medium text-slate-700">
+                      <span className="font-medium text-foreground/80">
                         How to access:{" "}
                       </span>
-                      <span className="text-slate-600">
+                      <span className="text-muted-foreground">
                         {feature.howToAccess}
                       </span>
                     </div>
                     {feature.whenToUse.length > 0 && (
                       <div className="mt-2">
-                        <span className="text-sm font-medium text-slate-700">
+                        <span className="text-sm font-medium text-foreground/80">
                           When to use:
                         </span>
                         <ul className="mt-1 space-y-1">
                           {feature.whenToUse.map((w, i) => (
                             <li
                               key={i}
-                              className="flex items-start gap-2 text-sm text-slate-600"
+                              className="flex items-start gap-2 text-sm text-muted-foreground"
                             >
-                              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-400" />
+                              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
                               {w}
                             </li>
                           ))}
@@ -1033,7 +1033,7 @@ export default function ManualContent({
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b text-left text-slate-500">
+                    <tr className="border-b border-border text-left text-muted-foreground">
                       <th className="pb-2 pr-4 font-medium">Shortcut</th>
                       <th className="pb-2 pr-4 font-medium">Action</th>
                       <th className="pb-2 pr-4 font-medium">Platform</th>
@@ -1045,7 +1045,7 @@ export default function ManualContent({
                     {manual.shortcuts.map((shortcut) => (
                       <tr key={shortcut.id}>
                         <td className="py-2 pr-4">
-                          <kbd className="rounded border bg-slate-100 px-2 py-0.5 font-mono text-xs">
+                          <kbd className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-xs">
                             {shortcut.keys}
                           </kbd>
                           <CitationLinks
@@ -1053,10 +1053,10 @@ export default function ManualContent({
                             citations={manual.citations}
                           />
                         </td>
-                        <td className="py-2 pr-4 text-slate-700">
+                        <td className="py-2 pr-4 text-foreground/80">
                           {shortcut.action}
                         </td>
-                        <td className="py-2 pr-4 text-slate-500">
+                        <td className="py-2 pr-4 text-muted-foreground">
                           {shortcut.platforms.join(", ")}
                         </td>
                         <td className="py-2">
@@ -1087,10 +1087,10 @@ export default function ManualContent({
                 {manual.workflows.map((workflow) => (
                   <div
                     key={workflow.id}
-                    className="rounded-lg border border-slate-100 bg-slate-50 p-4"
+                    className="rounded-lg border border-border bg-card p-4"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-slate-900">
+                      <h4 className="font-semibold text-foreground">
                         {workflow.name}
                         <CitationLinks
                           sourceIndices={workflow.sourceIndices}
@@ -1099,28 +1099,28 @@ export default function ManualContent({
                       </h4>
                       <div className="flex items-center gap-2">
                         <SectionFeedback slug={manual.slug} sectionType="workflow" sectionId={workflow.id} />
-                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           {workflow.estimatedTime}
                         </span>
                         <PowerBadge level={workflow.difficulty} />
                       </div>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {workflow.description}
                     </p>
                     <ol className="mt-3 space-y-2">
                       {workflow.steps.map((step) => (
                         <li key={step.step} className="flex gap-3 text-sm">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-medium text-primary">
                             {step.step}
                           </span>
                           <div>
-                            <p className="font-medium text-slate-800">
+                            <p className="font-medium text-foreground">
                               {step.action}
                             </p>
                             {step.details && (
-                              <p className="mt-0.5 text-slate-500">
+                              <p className="mt-0.5 text-muted-foreground">
                                 {step.details}
                               </p>
                             )}
@@ -1148,10 +1148,10 @@ export default function ManualContent({
                 {manual.tips.map((tip) => (
                   <div
                     key={tip.id}
-                    className="rounded-lg border border-slate-100 bg-slate-50 p-4"
+                    className="rounded-lg border border-border bg-card p-4"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-slate-900">
+                      <h4 className="font-semibold text-foreground">
                         {tip.title}
                         <CitationLinks
                           sourceIndices={tip.sourceIndices}
@@ -1163,11 +1163,11 @@ export default function ManualContent({
                         <PowerBadge level={tip.powerLevel} />
                       </div>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {tip.description}
                     </p>
                     {tip.example && (
-                      <div className="mt-2 rounded border border-blue-100 bg-blue-50 p-2 text-sm text-blue-800">
+                      <div className="mt-2 rounded border border-primary/20 bg-primary/5 p-2 text-sm text-primary">
                         <span className="font-medium">Example: </span>
                         {tip.example}
                       </div>
@@ -1192,10 +1192,10 @@ export default function ManualContent({
                 {manual.commonMistakes.map((mistake) => (
                   <div
                     key={mistake.id}
-                    className="rounded-lg border border-slate-100 bg-slate-50 p-4"
+                    className="rounded-lg border border-border bg-card p-4"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-red-800">
+                      <h4 className="font-semibold text-destructive">
                         ❌ {mistake.mistake}
                       </h4>
                       <div className="flex items-center gap-2">
@@ -1204,18 +1204,18 @@ export default function ManualContent({
                       </div>
                     </div>
                     <div className="mt-2 text-sm">
-                      <span className="font-medium text-slate-700">
+                      <span className="font-medium text-foreground/80">
                         Why it happens:{" "}
                       </span>
-                      <span className="text-slate-600">
+                      <span className="text-muted-foreground">
                         {mistake.whyItHappens}
                       </span>
                     </div>
                     <div className="mt-1 text-sm">
-                      <span className="font-medium text-green-700">
+                      <span className="font-medium text-success">
                         ✅ Correction:{" "}
                       </span>
-                      <span className="text-slate-600">
+                      <span className="text-muted-foreground">
                         {mistake.correction}
                       </span>
                     </div>
@@ -1239,24 +1239,24 @@ export default function ManualContent({
                 {manual.recentUpdates.map((update, i) => (
                   <div
                     key={i}
-                    className="flex items-start gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3"
+                    className="flex items-start gap-3 rounded-lg border border-border bg-card p-3"
                   >
                     <Star
                       className={`h-4 w-4 shrink-0 ${
                         update.impact === "major"
-                          ? "text-yellow-500"
-                          : "text-slate-400"
+                          ? "text-primary"
+                          : "text-muted-foreground"
                       }`}
                     />
                     <div>
-                      <span className="font-medium text-slate-900">
+                      <span className="font-medium text-foreground">
                         {update.feature}
                       </span>
                       <CitationLinks
                         sourceIndices={update.sourceIndices}
                         citations={manual.citations}
                       />
-                      <p className="text-sm text-slate-600">
+                      <p className="text-sm text-muted-foreground">
                         {update.description}
                       </p>
                     </div>
@@ -1279,14 +1279,14 @@ export default function ManualContent({
               <ol className="space-y-2 text-sm">
                 {manual.citations.map((url, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-blue-100 text-[10px] font-medium text-blue-700">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/15 text-[10px] font-medium text-primary">
                       {i + 1}
                     </span>
                     <a
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="break-all text-blue-600 hover:underline"
+                      className="break-all text-primary hover:underline"
                     >
                       {url}
                     </a>
@@ -1299,26 +1299,26 @@ export default function ManualContent({
         </div>
 
         {/* Feedback */}
-        <div className="mt-8 rounded-xl border bg-white p-6 text-center shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900">
+        <div className="mt-8 rounded-xl border border-border bg-card p-6 text-center">
+          <h3 className="text-lg font-semibold text-foreground">
             Was this manual helpful?
           </h3>
           {feedbackSent !== null ? (
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-muted-foreground">
               Thanks for your feedback!
             </p>
           ) : (
             <div className="mt-3 flex items-center justify-center gap-4">
               <button
                 onClick={() => sendFeedback(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+                className="inline-flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm font-medium text-success hover:bg-success/20"
               >
                 <ThumbsUp className="h-4 w-4" />
                 Yes, helpful
               </button>
               <button
                 onClick={() => sendFeedback(false)}
-                className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                className="inline-flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20"
               >
                 <ThumbsDown className="h-4 w-4" />
                 Not helpful
@@ -1328,7 +1328,7 @@ export default function ManualContent({
           <div className="mt-4 border-t pt-4">
             <button
               onClick={() => setShowFeedbackModal(true)}
-              className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               <MessageSquare className="h-4 w-4" />
               Report an issue or send detailed feedback
@@ -1337,7 +1337,7 @@ export default function ManualContent({
         </div>
 
         {/* Metadata */}
-        <div className="mt-4 text-center text-xs text-slate-400">
+        <div className="mt-4 text-center text-xs text-muted-foreground">
           Generated {new Date(manual.generatedAt).toLocaleString()} ·{" "}
           {manual.citations.length} citations · Schema v{manual.schemaVersion}
         </div>

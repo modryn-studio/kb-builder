@@ -65,9 +65,9 @@ export default function Home() {
         return;
       }
 
-      // New job created - redirect to pending page
+      // New job created - redirect to job tracking page
       if (data.id && data.status === "queued") {
-        router.push("/pending");
+        router.push(`/job/${data.id}`);
         return;
       }
 

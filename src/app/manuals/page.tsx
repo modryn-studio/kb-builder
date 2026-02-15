@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  BookOpen,
-  Clock,
   Library,
   Loader2,
-  Plus,
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
+import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 // ──────────────────────────────────────────────
 // Types
@@ -65,64 +67,33 @@ export default function ManualsPage() {
   }, [fetchManuals]);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <BookOpen className="h-8 w-8 text-blue-600" />
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">KB Builder</h1>
-              <p className="text-sm text-slate-500">Generated Manuals</p>
-            </div>
-          </div>
-          <nav className="flex items-center gap-4">
-            <Link
-              href="/kb-builder"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              <Plus className="h-4 w-4" />
-              New
-            </Link>
-            <Link
-              href="/pending"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              <Clock className="h-4 w-4" />
-              Pending
-            </Link>
-            <Link
-              href="/manuals"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-900"
-            >
-              <Library className="h-4 w-4" />
-              Manuals
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background">
+      <Navbar />
 
-      <main className="mx-auto max-w-4xl px-6 py-8">
+      <main className="mx-auto max-w-4xl px-6 pt-24 pb-12">
+        <div className="mb-8">
+          <h1 className="font-heading text-3xl font-bold text-foreground">Manual Library</h1>
+          <p className="mt-1 text-muted-foreground">
+            Browse all generated instruction manuals.
+          </p>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : manuals.length === 0 ? (
-          <div className="rounded-2xl border bg-white p-12 text-center shadow-sm">
-            <Library className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-            <h2 className="text-lg font-semibold text-slate-700">
+          <div className="rounded-2xl border border-border bg-card p-12 text-center">
+            <Library className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h2 className="font-heading text-lg font-semibold text-foreground">
               No manuals yet
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-muted-foreground">
               Generate your first instruction manual to see it here.
             </p>
-            <Link
-              href="/kb-builder"
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" />
-              Generate a Manual
-            </Link>
+            <Button variant="vault" className="mt-4" asChild>
+              <Link href="/">Generate a Manual</Link>
+            </Button>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -130,53 +101,41 @@ export default function ManualsPage() {
               <a
                 key={manual.slug}
                 href={manual.url}
-                className="group rounded-xl border bg-white p-5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+                className="group rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-vault"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-slate-900 group-hover:text-blue-600">
+                    <h3 className="font-heading text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
                       {manual.tool}
                     </h3>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {formatDate(manual.generatedAt)}
                     </p>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-slate-300 transition-colors group-hover:text-blue-500" />
+                  <ExternalLink className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                    {manual.featureCount} features
-                  </span>
+                  <Badge variant="vault-muted">{manual.featureCount} features</Badge>
                   {manual.shortcutCount > 0 && (
-                    <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
-                      {manual.shortcutCount} shortcuts
-                    </span>
+                    <Badge variant="vault-muted">{manual.shortcutCount} shortcuts</Badge>
                   )}
                   {manual.workflowCount > 0 && (
-                    <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                      {manual.workflowCount} workflows
-                    </span>
+                    <Badge variant="vault-muted">{manual.workflowCount} workflows</Badge>
                   )}
                   {manual.tipCount > 0 && (
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                      {manual.tipCount} tips
-                    </span>
+                    <Badge variant="vault-muted">{manual.tipCount} tips</Badge>
                   )}
                 </div>
                 {manual.coverageScore > 0 && (
                   <div className="mt-3">
-                    <div className="flex items-center justify-between text-xs text-slate-400">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Coverage</span>
                       <span>{Math.round(manual.coverageScore * 100)}%</span>
                     </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-blue-500"
-                        style={{
-                          width: `${Math.round(manual.coverageScore * 100)}%`,
-                        }}
-                      />
-                    </div>
+                    <Progress
+                      value={Math.round(manual.coverageScore * 100)}
+                      className="mt-1 h-1.5"
+                    />
                   </div>
                 )}
               </a>
@@ -184,6 +143,8 @@ export default function ManualsPage() {
           </div>
         )}
       </main>
+
+      <Footer />
     </div>
   );
 }
