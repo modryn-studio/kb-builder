@@ -46,7 +46,7 @@ export function Navbar() {
           <div className="flex items-center gap-4">
             {!isManualPage && (
               <a
-                href="#manuals"
+                href="/manuals"
                 className="text-sm font-body text-muted-foreground hover:text-foreground transition-colors duration-200 hidden sm:block cursor-pointer"
               >
                 Browse Manuals
