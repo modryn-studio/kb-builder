@@ -30,33 +30,33 @@ export function ProblemSection() {
                 <Search className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-body text-muted-foreground truncate">
-                    &ldquo;figma auto layout tips&rdquo;
+                    &ldquo;how to set up Supabase auth&rdquo;
                   </p>
                 </div>
                 <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                  10 scattered results
+                  AI: deprecated method
                 </span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-lg bg-card/60 border border-border/40">
                 <Search className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-body text-muted-foreground truncate">
-                    &ldquo;vs code debugging config&rdquo;
+                    &ldquo;Vercel deployment config&rdquo;
                   </p>
                 </div>
                 <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                  Outdated 2023 guides
+                  Outdated 2024 guide
                 </span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-lg bg-card/60 border border-border/40">
                 <Search className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-body text-muted-foreground truncate">
-                    &ldquo;notion database formulas&rdquo;
+                    &ldquo;Stripe checkout integration&rdquo;
                   </p>
                 </div>
                 <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                  Missing context
+                  Legacy API response
                 </span>
               </div>
             </div>
@@ -77,22 +77,22 @@ export function ProblemSection() {
             </div>
 
             <h2 className="font-heading text-2xl sm:text-3xl font-semibold text-foreground mb-6 leading-snug">
-              Google gives you 10 scattered results from 2023.
+              ChatGPT is months behind. Google shows you 2023.
             </h2>
 
             <div className="space-y-4 mb-8">
               <p className="text-sm text-muted-foreground font-body leading-relaxed">
-                Every software tool you use has features you&apos;ve never found.
-                Power-user shortcuts buried in forum threads. Configuration
-                options documented only in a GitHub issue from 2022. Workflows
-                that would save you hours, hiding in a Reddit comment with 3
-                upvotes.
+                You ask an AI assistant how to set up Stripe, configure Vercel,
+                or use Supabase&apos;s latest features. It gives you confident
+                instructions — for a version that no longer exists. Deprecated
+                APIs, replaced dashboards, legacy workflows. The training data
+                is months behind, and you won&apos;t know until you&apos;re stuck.
               </p>
               <p className="text-sm text-muted-foreground font-body leading-relaxed">
-                KB Builder reads everything — official docs, community tutorials,
-                Reddit threads, GitHub discussions, changelogs — and synthesizes
-                it into one structured, current manual. Generated today, not last
-                year.
+                KB Builder does live web research — official docs, GitHub
+                releases, Reddit threads, changelogs from today — and
+                synthesizes everything into one structured, current manual.
+                Not last year. Not last month. Today.
               </p>
             </div>
 

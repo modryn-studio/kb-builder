@@ -128,9 +128,8 @@ export function HeroSection({ onGenerate }: HeroSectionProps) {
           }}
           className="font-heading text-4xl sm:text-5xl lg:text-6xl font-semibold text-foreground leading-tight tracking-tight mb-6"
         >
-          The best instruction manual for{" "}
-          <span className="gradient-gold-text">any tool or website</span>{" "}
-          on the internet.
+          Comprehensive manuals for any tool.{" "}
+          <span className="gradient-gold-text">Generated today, not last year.</span>
         </motion.h1>
 
         {/* Search input */}

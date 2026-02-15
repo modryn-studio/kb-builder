@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { HeroSection } from "@/components/HeroSection";
 import { ManualBrowser } from "@/components/ManualBrowser";
-import { ProblemSection } from "@/components/ProblemSection";
-import { HowItWorks } from "@/components/HowItWorks";
 import { Footer } from "@/components/Footer";
 import { GenerationModal } from "@/components/GenerationModal";
 import { getOrCreateSessionId } from "@/lib/session";
@@ -90,8 +88,6 @@ export default function Home() {
       <Navbar />
       <HeroSection onGenerate={handleGenerate} />
       <ManualBrowser />
-      <ProblemSection />
-      <HowItWorks />
       <Footer />
       <GenerationModal
         open={generationOpen}

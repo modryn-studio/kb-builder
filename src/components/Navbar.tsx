@@ -53,9 +53,9 @@ export function Navbar() {
               </a>
             )}
             {!isManualPage && (
-              <a href="#how-it-works" className="cursor-pointer">
+              <a href="/about" className="cursor-pointer">
                 <Button variant="vault-outline" size="sm" className="cursor-pointer">
-                  How It Works
+                  About
                 </Button>
               </a>
             )}

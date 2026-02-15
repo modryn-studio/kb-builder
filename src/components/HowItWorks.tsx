@@ -14,9 +14,9 @@ const STEPS = [
   {
     number: "02",
     icon: Globe,
-    title: "AI researches everything",
+    title: "AI researches today's internet",
     description:
-      "Our AI reads official docs, Reddit threads, tutorials, GitHub issues, and changelogs. Live web research, not cached data.",
+      "Live web research — not months-old training data. Official docs, GitHub releases, Reddit threads, and today's changelogs. Current as of right now.",
   },
   {
     number: "03",
