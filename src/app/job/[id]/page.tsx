@@ -12,6 +12,8 @@ import {
   Copy,
   Check,
   ArrowRight,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -85,6 +87,9 @@ export default function JobPage() {
   const [copied, setCopied] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [statusMessageIndex, setStatusMessageIndex] = useState(0);
+  const [errorCount, setErrorCount] = useState(0);
+  const [pollingError, setPollingError] = useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasRedirected = useRef(false);
 
@@ -97,30 +102,39 @@ export default function JobPage() {
         setLoading(false);
         return;
       }
-      if (!response.ok) return;
+      if (!response.ok) {
+        throw new Error(`Failed to fetch job: ${response.status}`);
+      }
       const data = await response.json();
       setJob(data);
+      setErrorCount(0); // Reset on success
+      setPollingError(null);
     } catch (err) {
       console.error("Failed to fetch job:", err);
+      setErrorCount((prev) => prev + 1);
+      if (errorCount >= 4) { // Will be 5 after this increment
+        setPollingError("Unable to check job status. Please refresh the page.");
+      }
     } finally {
       setLoading(false);
     }
-  }, [jobId]);
+  }, [jobId, errorCount]);
 
   // Initial fetch
   useEffect(() => {
     fetchJob();
   }, [fetchJob]);
 
-  // Polling — every 3s while job is active
+  // Polling — every 3s while job is active (stop after 5 consecutive errors)
   useEffect(() => {
     if (!job) return;
+    if (errorCount >= 5) return; // Stop polling after 5 failures
     const isActive = job.status === "queued" || job.status === "processing";
     if (!isActive) return;
 
     const interval = setInterval(fetchJob, 3000);
     return () => clearInterval(interval);
-  }, [job, fetchJob]);
+  }, [job, fetchJob, errorCount]);
 
   // Live elapsed timer for processing jobs
   useEffect(() => {
@@ -161,6 +175,13 @@ export default function JobPage() {
     };
   }, [job?.status, job?.shareableUrl, router]);
 
+  // Check notification permission on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
   // Send browser notification on completion
   useEffect(() => {
     if (!job || job.status !== "completed") return;
@@ -172,6 +193,14 @@ export default function JobPage() {
       icon: "/favicon.ico",
     });
   }, [job?.status, job?.toolName, job?.featureCount, job?.shortcutCount]);
+
+  const requestNotificationPermission = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+  };
 
   const handleCopy = () => {
     if (job?.shareableUrl) {
@@ -314,6 +343,67 @@ export default function JobPage() {
             )}
           </div>
         </div>
+
+        {/* Polling error banner */}
+        {pollingError && (
+          <div className="mt-6 rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+            <div className="flex items-start gap-3">
+              <XCircle className="h-5 w-5 shrink-0 text-destructive mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-destructive">Connection Error</p>
+                <p className="mt-1 text-xs text-muted-foreground">{pollingError}</p>
+              </div>
+              <Button
+                variant="vault-outline"
+                size="sm"
+                onClick={() => {
+                  setErrorCount(0);
+                  setPollingError(null);
+                  fetchJob();
+                }}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Notification permission banner */}
+        {notificationPermission === "default" && 
+         (job.status === "queued" || job.status === "processing") && (
+          <div className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-start gap-3">
+              <Bell className="h-5 w-5 shrink-0 text-primary mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Enable notifications</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Get notified when your manual is ready
+                </p>
+              </div>
+              <Button
+                variant="vault-outline"
+                size="sm"
+                onClick={requestNotificationPermission}
+              >
+                <Bell className="h-3 w-3" />
+                Enable
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {notificationPermission === "denied" && 
+         (job.status === "queued" || job.status === "processing") && (
+          <div className="mt-6 rounded-xl border border-border bg-card p-4">
+            <div className="flex items-start gap-3">
+              <BellOff className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                Browser notifications are blocked. You can still check back here for updates.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Progress section */}
         {(job.status === "queued" || job.status === "processing") && (
