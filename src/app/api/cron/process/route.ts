@@ -65,7 +65,6 @@ export async function POST(request: NextRequest) {
         shortcutCount: manual.shortcuts.length,
         workflowCount: manual.workflows.length,
         tipCount: manual.tips.length,
-        coverageScore: manual.coverageScore,
       });
 
       console.log(`[CRON ${job.id}] ✅ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);

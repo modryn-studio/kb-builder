@@ -26,6 +26,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import type { InstructionManual } from "@/lib/schema";
+import { Navbar } from "@/components/Navbar";
 
 // ──────────────────────────────────────────────
 // Citation Links
@@ -582,8 +583,7 @@ export default function ManualContent({
     
     lines.push(`# ${manual.tool} - Instruction Manual\n`);
     lines.push(`**Generated**: ${new Date().toLocaleDateString()}\n`);
-    lines.push(`**Tool Scope**: ${manual.toolScope}\n`);
-    lines.push(`**Coverage Score**: ${Math.round(manual.coverageScore * 100)}%\n\n`);
+    lines.push(`**Tool Scope**: ${manual.toolScope}\n\n`);
     
     if (manual.overview) {
       lines.push(`## Overview\n\n${manual.overview.whatItIs}\n\n`);
@@ -728,64 +728,16 @@ export default function ManualContent({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <BookOpen className="h-8 w-8 text-primary" />
-            <span className="text-lg font-heading font-bold text-foreground">
-              KB Builder
-            </span>
-          </div>
-          <a
-            href="/"
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary"
-          >
-            ← Back Home
-          </a>
-          <button
-            onClick={handleCopyLink}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary"
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-success" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <LinkIcon className="h-3.5 w-3.5" />
-                Copy Link
-              </>
-            )}
-          </button>
-          <button
-            onClick={exportAsMarkdown}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary"
-            title="Export as Markdown file"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export
-          </button>
-          <button
-            onClick={loadVersionHistory}
-            disabled={loadingVersions}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
-            title="View version history"
-          >
-            <History className="h-3.5 w-3.5" />
-            {loadingVersions ? "Loading..." : "Versions"}
-          </button>
-          <button
-            onClick={() => setShowFeedbackModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
-            title="Send feedback or report an issue"
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            Feedback
-          </button>
-        </div>
-      </header>
+      <Navbar 
+        manualActions={{
+          onCopyLink: handleCopyLink,
+          onExport: exportAsMarkdown,
+          onVersions: loadVersionHistory,
+          onFeedback: () => setShowFeedbackModal(true),
+          copied,
+          loadingVersions,
+        }}
+      />
 
       {/* Version History Modal */}
       {showVersions && (
@@ -834,7 +786,7 @@ export default function ManualContent({
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8 pt-24 pb-12">
         <div className="flex gap-8">
           {/* TOC Sidebar */}
           <aside className="hidden w-56 shrink-0 lg:block">
@@ -843,21 +795,6 @@ export default function ManualContent({
 
           {/* Main Content */}
           <main className="min-w-0 flex-1" ref={mainRef}>
-        {/* Coverage Warning */}
-        {manual.coverageScore < 0.5 && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-            <AlertCircle className="h-5 w-5 shrink-0 text-primary" />
-            <div>
-              <p className="font-medium text-foreground">Limited Coverage</p>
-              <p className="text-sm text-muted-foreground">
-                This manual has a coverage score of{" "}
-                {Math.round(manual.coverageScore * 100)}%. Some information may
-                be incomplete. Consider regenerating for better results.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Title & Overview */}
         <div className="mb-8" id="overview" data-toc-id="overview">
           <h1 className="text-3xl font-heading font-bold text-foreground">{manual.tool}</h1>
@@ -936,12 +873,6 @@ export default function ManualContent({
               {manual.commonMistakes.length}
             </div>
             <div className="text-xs text-muted-foreground">Mistakes</div>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4 text-center">
-            <div className="text-2xl font-bold text-foreground">
-              {Math.round(manual.coverageScore * 100)}%
-            </div>
-            <div className="text-xs text-muted-foreground">Coverage</div>
           </div>
         </div>
 

@@ -68,7 +68,6 @@ function buildUserPrompt(toolName: string): string {
   "schemaVersion": "4.1",
   "tool": "${toolName}",
   "slug": "kebab-case",
-  "coverageScore": 0.85,
   "toolScope": "simple",
   "overview": { "whatItIs": "", "primaryUseCases": [], "platforms": [], "pricing": "", "targetUsers": [] },
   "features": [{ "id": "", "name": "", "category": "", "description": "", "whatItsFor": "", "whenToUse": [], "howToAccess": "", "keywords": [], "powerLevel": "basic", "sourceIndices": [] }],
@@ -300,6 +299,77 @@ function parseGenerationJSON(text: string): InstructionManualGeneration {
 }
 
 // ──────────────────────────────────────────────
+// Response extraction helpers
+// ──────────────────────────────────────────────
+
+function extractTextFromResponse(response: ResponseCreateResponse): string {
+  // Method 1: convenience property
+  if (response.output_text && typeof response.output_text === "string") {
+    return response.output_text;
+  }
+
+  // Method 2: extract from output array
+  let text = "";
+  if ("output" in response && Array.isArray(response.output)) {
+    for (const item of response.output) {
+      if (item.type === "message" && "content" in item) {
+        if (typeof item.content === "string") {
+          text += item.content;
+        } else if (Array.isArray(item.content)) {
+          for (const block of item.content) {
+            if (block.type === "output_text" && "text" in block && typeof block.text === "string") {
+              text += block.text;
+            }
+          }
+        }
+      }
+    }
+  }
+  return text;
+}
+
+interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+function extractSearchResultsFromResponse(response: ResponseCreateResponse): SearchResult[] {
+  if (!("output" in response) || !Array.isArray(response.output)) return [];
+
+  const results: SearchResult[] = [];
+  for (const item of response.output) {
+    if (item.type === "search_results" && "results" in item && Array.isArray(item.results)) {
+      for (const r of item.results) {
+        if (r && typeof r === "object" && "url" in r) {
+          const rec = r as unknown as Record<string, string>;
+          results.push({
+            title: rec.title || "",
+            url: rec.url || "",
+            snippet: rec.snippet || "",
+          });
+        }
+      }
+    }
+  }
+  return results;
+}
+
+function buildUserPromptWithSearchContext(toolName: string, searchResults: SearchResult[]): string {
+  const context = searchResults
+    .filter(r => r.snippet) // Only results with actual content
+    .slice(0, 12) // Limit to avoid token bloat
+    .map((r, i) => `[Source ${i + 1}] ${r.title}\nURL: ${r.url}\n${r.snippet}`)
+    .join("\n\n");
+
+  return `${buildUserPrompt(toolName)}
+
+Use these web research results as your primary sources. Reference them accurately:
+
+${context}`;
+}
+
+// ──────────────────────────────────────────────
 // Non-streaming generation (with retry + fallback)
 // ──────────────────────────────────────────────
 
@@ -313,6 +383,15 @@ export async function generateManual(
 
   for (const model of MODELS) {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => {
+          console.log(`[${new Date().toISOString()}] API call timeout after ${API_TIMEOUT_MS}ms`);
+          controller.abort();
+        },
+        API_TIMEOUT_MS
+      );
+
       try {
         onProgress?.(
           "generating",
@@ -320,20 +399,17 @@ export async function generateManual(
           { model, attempt }
         );
 
-        const controller = new AbortController();
-        const timeout = setTimeout(
-          () => {
-            console.log(`[${new Date().toISOString()}] API call timeout after ${API_TIMEOUT_MS}ms`);
-            controller.abort();
-          },
-          API_TIMEOUT_MS
-        );
-
         console.log(`[${new Date().toISOString()}] Making API call to ${model}...`);
         console.log("Instructions length:", buildInstructions(slug).length);
         console.log("Prompt length:", buildUserPrompt(toolName).length);
 
         let response: ResponseCreateResponse;
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+
+        // ════════════════════════════════════════════
+        // Phase 1: Web search + attempt text generation
+        // ════════════════════════════════════════════
         try {
           response = await client.responses.create(
             {
@@ -346,70 +422,88 @@ export async function generateManual(
             },
             { signal: controller.signal }
           );
-          console.log(`[${new Date().toISOString()}] API call succeeded!`);
+          console.log(`[${new Date().toISOString()}] Phase 1 API call succeeded!`);
+          
+          // Track Phase 1 tokens
+          if (response.usage) {
+            const usage = response.usage as unknown as Record<string, number>;
+            totalInputTokens += usage.input_tokens || 0;
+            totalOutputTokens += usage.output_tokens || 0;
+          }
         } catch (apiError) {
-          console.error("API call error:", apiError);
+          console.error("Phase 1 API call error:", apiError);
           throw apiError;
-        } finally {
-          clearTimeout(timeout);
         }
 
-        // Extract text from response with detailed debugging
-        console.log("Response keys:", Object.keys(response));
-        console.log("Response status:", response.status);
-        console.log("Has output_text:", "output_text" in response);
-        console.log("output_text value:", response.output_text);
-        console.log("Has output array:", "output" in response);
-        
-        // Try multiple extraction methods
-        let text = "";
-        
-        // Method 1: convenience property
-        if (response.output_text && typeof response.output_text === "string") {
-          text = response.output_text;
-        }
-        
-        // Method 2: extract from output array
-        if (!text && "output" in response && Array.isArray(response.output)) {
-          console.log("Trying to extract from output array, length:", response.output.length);
-          for (const item of response.output) {
-            console.log("Output item:", JSON.stringify(item, null, 2));
-            // Output items can be: message, search_results, fetch_url_results, function_call
-            if (item.type === "message" && "content" in item && typeof item.content === "string") {
-              text += item.content;
+        // Extract text from Phase 1
+        let text = extractTextFromResponse(response);
+        console.log(`Phase 1 text length: ${text.trim().length}`);
+
+        // ════════════════════════════════════════════
+        // Phase 2: If empty text, synthesize from search results
+        // Known issue: Perplexity Agent API with Claude Opus
+        // sometimes returns search results but empty output_text.
+        // Solution: Feed search results as context into a second
+        // call WITHOUT the web_search tool.
+        // ════════════════════════════════════════════
+        if (!text || text.trim().length === 0) {
+          const searchResults = extractSearchResultsFromResponse(response);
+          
+          if (searchResults.length > 0) {
+            console.log(`Phase 1 returned empty text but ${searchResults.length} search results.`);
+            console.log("Starting Phase 2: Synthesizing manual from search context...");
+            onProgress?.("generating", "Synthesizing manual from web research...", { phase: 2 });
+
+            try {
+              const response2 = await client.responses.create(
+                {
+                  model,
+                  instructions: buildInstructions(slug),
+                  input: buildUserPromptWithSearchContext(toolName, searchResults),
+                  max_output_tokens: 65536,
+                  stream: false,
+                },
+                { signal: controller.signal }
+              );
+              console.log(`[${new Date().toISOString()}] Phase 2 API call succeeded!`);
+
+              text = extractTextFromResponse(response2);
+              console.log(`Phase 2 text length: ${text.trim().length}`);
+
+              // Track Phase 2 tokens
+              if (response2.usage) {
+                const usage2 = response2.usage as unknown as Record<string, number>;
+                totalInputTokens += usage2.input_tokens || 0;
+                totalOutputTokens += usage2.output_tokens || 0;
+              }
+            } catch (phase2Error) {
+              console.error("Phase 2 API call error:", phase2Error);
+              throw phase2Error;
             }
+          } else {
+            console.error("Phase 1 returned empty text AND no search results.");
           }
         }
 
         if (!text || text.trim().length === 0) {
-          console.error("Empty response from API");
-          console.error("Full response:", JSON.stringify(response, null, 2));
+          console.error("Empty response from API (both phases)");
           throw new Error("Empty response from API - model may have refused or failed to generate");
         }
+
+        clearTimeout(timeout);
 
         console.log("Extracted text length:", text.length);
         console.log("Text preview:", text.substring(0, 200));
 
         const parsed = parseGenerationJSON(text);
+        // Extract citations from Phase 1 response (which has the search results)
         const citations = extractCitationsFromResponse(response);
         const sanitized = sanitizeManualIndices(parsed, citations.length);
 
         // ── Usage & Cost Tracking ──
-        // Debug: log the full usage object to understand API response shape
-        console.log("Response usage:", JSON.stringify(response.usage, null, 2));
-        console.log("Response keys for usage discovery:", Object.keys(response));
-
-        // Try multiple paths — Perplexity may use different field names
-        const rawUsage = response.usage
-          || (response as unknown as Record<string, unknown>).model_usage
-          || (response as unknown as Record<string, unknown>).billing;
-        
-        let inputTokens = (rawUsage as Record<string, number> | undefined)?.input_tokens
-          ?? (rawUsage as Record<string, number> | undefined)?.prompt_tokens  // OpenAI-style
-          ?? 0;
-        let outputTokens = (rawUsage as Record<string, number> | undefined)?.output_tokens
-          ?? (rawUsage as Record<string, number> | undefined)?.completion_tokens  // OpenAI-style
-          ?? 0;
+        // Use accumulated totals from Phase 1 + Phase 2 (if applicable)
+        let inputTokens = totalInputTokens;
+        let outputTokens = totalOutputTokens;
 
         // Fallback: estimate from text length if API didn't return usage
         if (inputTokens === 0 && outputTokens === 0) {
@@ -445,6 +539,7 @@ export async function generateManual(
         // Return manual with token counts attached (not in schema, but needed for job tracking)
         return Object.assign(manual, { inputTokens, outputTokens });
       } catch (err) {
+        clearTimeout(timeout);
         const msg =
           err instanceof Error ? err.message : "Unknown error";
         

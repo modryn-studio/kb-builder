@@ -26,6 +26,7 @@ export async function storeManual(manual: InstructionManual): Promise<{
       access: "public",
       addRandomSuffix: false,
       contentType: "application/json",
+      allowOverwrite: true,
     }
   );
 
@@ -34,6 +35,7 @@ export async function storeManual(manual: InstructionManual): Promise<{
     access: "public",
     addRandomSuffix: false,
     contentType: "application/json",
+    allowOverwrite: true,
   });
 
   const baseUrl =

@@ -90,7 +90,6 @@ export const InstructionManualGenerationSchema = z.object({
   schemaVersion: z.literal("4.1"),
   tool: z.string().describe("Exact tool name as commonly known"),
   slug: z.string().describe("URL-safe kebab-case slug"),
-  coverageScore: z.number().min(0).max(1).describe("How comprehensive 0-1"),
   toolScope: z.enum(["enterprise", "standard", "simple"]).describe("Tool complexity level"),
   overview: OverviewSchema,
   features: z.array(FeatureSchema).min(1).describe("All major features"),

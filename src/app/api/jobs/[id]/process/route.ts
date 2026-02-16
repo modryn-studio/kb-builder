@@ -77,7 +77,6 @@ export async function POST(
         shortcutCount: manual.shortcuts.length,
         workflowCount: manual.workflows.length,
         tipCount: manual.tips.length,
-        coverageScore: manual.coverageScore,
       });
 
       console.log(`[JOB ${id}] ✅ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s — ${manual.features.length} features, $${manual.cost.total.toFixed(4)}`);

@@ -42,7 +42,6 @@ interface Job {
   shortcutCount: number;
   workflowCount: number;
   tipCount: number;
-  coverageScore: number;
   elapsedMs?: number;
 }
 
@@ -87,11 +86,11 @@ export default function JobPage() {
   const [copied, setCopied] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [statusMessageIndex, setStatusMessageIndex] = useState(0);
-  const [errorCount, setErrorCount] = useState(0);
   const [pollingError, setPollingError] = useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasRedirected = useRef(false);
+  const errorCountRef = useRef(0);
 
   // Fetch job status
   const fetchJob = useCallback(async () => {
@@ -107,18 +106,18 @@ export default function JobPage() {
       }
       const data = await response.json();
       setJob(data);
-      setErrorCount(0); // Reset on success
+      errorCountRef.current = 0; // Reset on success
       setPollingError(null);
     } catch (err) {
       console.error("Failed to fetch job:", err);
-      setErrorCount((prev) => prev + 1);
-      if (errorCount >= 4) { // Will be 5 after this increment
+      errorCountRef.current += 1;
+      if (errorCountRef.current >= 5) {
         setPollingError("Unable to check job status. Please refresh the page.");
       }
     } finally {
       setLoading(false);
     }
-  }, [jobId, errorCount]);
+  }, [jobId]);
 
   // Initial fetch
   useEffect(() => {
@@ -128,13 +127,13 @@ export default function JobPage() {
   // Polling — every 3s while job is active (stop after 5 consecutive errors)
   useEffect(() => {
     if (!job) return;
-    if (errorCount >= 5) return; // Stop polling after 5 failures
+    if (errorCountRef.current >= 5) return; // Stop polling after 5 failures
     const isActive = job.status === "queued" || job.status === "processing";
     if (!isActive) return;
 
     const interval = setInterval(fetchJob, 3000);
     return () => clearInterval(interval);
-  }, [job, fetchJob, errorCount]);
+  }, [job, fetchJob]);
 
   // Live elapsed timer for processing jobs
   useEffect(() => {
@@ -357,7 +356,7 @@ export default function JobPage() {
                 variant="vault-outline"
                 size="sm"
                 onClick={() => {
-                  setErrorCount(0);
+                  errorCountRef.current = 0;
                   setPollingError(null);
                   fetchJob();
                 }}
@@ -449,9 +448,6 @@ export default function JobPage() {
               )}
               {job.tipCount > 0 && (
                 <Badge variant="vault-muted">{job.tipCount} tips</Badge>
-              )}
-              {job.coverageScore > 0 && (
-                <Badge variant="vault-muted">{Math.round(job.coverageScore * 100)}% coverage</Badge>
               )}
             </div>
 

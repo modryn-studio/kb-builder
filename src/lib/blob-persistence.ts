@@ -37,6 +37,7 @@ async function writeBlobJson(key: string, data: unknown): Promise<void> {
       access: "public",
       addRandomSuffix: false,
       contentType: "application/json",
+      allowOverwrite: true, // Allow updates to existing files
     });
   } catch (err) {
     console.error(`[BlobPersistence] Failed to write ${key}:`, err);

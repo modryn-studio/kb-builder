@@ -47,7 +47,6 @@ export interface GenerationJob {
   shortcutCount: number;
   workflowCount: number;
   tipCount: number;
-  coverageScore: number;
 }
 
 export type JobSummary = GenerationJob;
@@ -102,7 +101,6 @@ export async function createJob(params: {
     shortcutCount: 0,
     workflowCount: 0,
     tipCount: 0,
-    coverageScore: 0,
   };
 
   jobs.set(job.id, job);

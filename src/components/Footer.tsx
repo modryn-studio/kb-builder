@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BookOpen, Heart } from "lucide-react";
 
 export function Footer() {
@@ -18,17 +19,13 @@ export function Footer() {
             Built for serious learners. Free forever.
           </p>
 
-          <div className="flex items-center gap-2 text-xs text-muted-foreground font-body">
-            <span>☕</span>
-            <a
-              href="https://ko-fi.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-primary transition-colors duration-200 cursor-pointer"
-            >
-              Support this project
-            </a>
-          </div>
+          <Link
+            href="/support"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-body hover:text-primary transition-colors duration-200"
+          >
+            <Heart className="w-3 h-3" />
+            Support this project
+          </Link>
         </div>
       </div>
     </footer>

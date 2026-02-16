@@ -38,7 +38,6 @@ interface Job {
   shortcutCount: number;
   workflowCount: number;
   tipCount: number;
-  coverageScore: number;
   elapsedMs?: number;
 }
 
@@ -212,8 +211,6 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
           {job.generationTimeMs && (
             <span className="text-xs text-muted-foreground">
               Generated in {formatTime(job.generationTimeMs)}
-              {job.coverageScore > 0 &&
-                ` · ${Math.round(job.coverageScore * 100)}% coverage`}
             </span>
           )}
         </div>

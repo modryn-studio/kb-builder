@@ -1,17 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  Library,
-  Loader2,
-  ExternalLink,
-} from "lucide-react";
+import { Library, Loader2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 
 // ──────────────────────────────────────────────
 // Types
@@ -20,26 +15,21 @@ import { Progress } from "@/components/ui/progress";
 interface ManualItem {
   slug: string;
   tool: string;
-  generatedAt: string;
+  tagline: string;
+  description: string;
+  initial: string;
+  color: string;
+  generatedAt: string; // For sorting only, not displayed
   featureCount: number;
   shortcutCount: number;
   workflowCount: number;
   tipCount: number;
-  coverageScore: number;
   url: string;
 }
 
 // ──────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────
-
-function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 // ──────────────────────────────────────────────
 // Page Component
@@ -70,10 +60,15 @@ export default function ManualsPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="mx-auto max-w-4xl px-6 pt-24 pb-12">
-        <div className="mb-8">
-          <h1 className="font-heading text-3xl font-bold text-foreground">Manual Library</h1>
-          <p className="mt-1 text-muted-foreground">
+      <main className="mx-auto max-w-7xl px-6 lg:px-8 pt-24 pb-12">
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-3">
+            <Library className="w-5 h-5 text-primary" />
+            <h1 className="font-heading text-2xl sm:text-3xl font-semibold text-foreground">
+              Manual Library
+            </h1>
+          </div>
+          <p className="text-sm text-muted-foreground max-w-lg">
             Browse all generated instruction manuals.
           </p>
         </div>
@@ -96,50 +91,76 @@ export default function ManualsPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {manuals.map((manual) => (
-              <a
-                key={manual.slug}
-                href={manual.url}
-                className="group rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-vault"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-heading text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {manual.tool}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(manual.generatedAt)}
-                    </p>
-                  </div>
-                  <ExternalLink className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Badge variant="vault-muted">{manual.featureCount} features</Badge>
-                  {manual.shortcutCount > 0 && (
-                    <Badge variant="vault-muted">{manual.shortcutCount} shortcuts</Badge>
-                  )}
-                  {manual.workflowCount > 0 && (
-                    <Badge variant="vault-muted">{manual.workflowCount} workflows</Badge>
-                  )}
-                  {manual.tipCount > 0 && (
-                    <Badge variant="vault-muted">{manual.tipCount} tips</Badge>
-                  )}
-                </div>
-                {manual.coverageScore > 0 && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Coverage</span>
-                      <span>{Math.round(manual.coverageScore * 100)}%</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {manuals.map((manual) => {
+              const totalItems = manual.featureCount + manual.shortcutCount + manual.workflowCount + manual.tipCount;
+              
+              return (
+                <a
+                  key={manual.slug}
+                  href={manual.url}
+                  className="group flex flex-col text-left w-full rounded-xl border border-border/50 bg-card/60 hover:bg-card hover:border-primary/20 p-5 transition-all duration-300 hover:shadow-vault"
+                >
+                  {/* Header */}
+                  <div className="flex items-start gap-3.5 mb-4">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-heading font-semibold shrink-0"
+                      style={{
+                        backgroundColor: `${manual.color.replace(")", " / 0.12)")}`,
+                        color: manual.color,
+                      }}
+                    >
+                      {manual.initial}
                     </div>
-                    <Progress
-                      value={Math.round(manual.coverageScore * 100)}
-                      className="mt-1 h-1.5"
-                    />
+                    <div className="min-w-0">
+                      <h3 className="font-heading text-lg font-semibold text-card-foreground group-hover:text-foreground transition-colors duration-200 leading-snug">
+                        {manual.tool}
+                      </h3>
+                      <p className="text-xs text-muted-foreground font-body mt-0.5">
+                        {manual.tagline}
+                      </p>
+                    </div>
                   </div>
-                )}
-              </a>
-            ))}
+
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground font-body leading-relaxed mb-4 line-clamp-2">
+                    {manual.description}
+                  </p>
+
+                  {/* Count Badges */}
+                  <div className="flex flex-wrap gap-1.5 mb-5">
+                    {manual.featureCount > 0 && (
+                      <Badge variant="vault-muted" className="text-[10px] font-mono">
+                        {manual.featureCount} features
+                      </Badge>
+                    )}
+                    {manual.shortcutCount > 0 && (
+                      <Badge variant="vault-muted" className="text-[10px] font-mono">
+                        {manual.shortcutCount} shortcuts
+                      </Badge>
+                    )}
+                    {manual.workflowCount > 0 && (
+                      <Badge variant="vault-muted" className="text-[10px] font-mono">
+                        {manual.workflowCount} workflows
+                      </Badge>
+                    )}
+                    {manual.tipCount > 0 && (
+                      <Badge variant="vault-muted" className="text-[10px] font-mono">
+                        {manual.tipCount} tips
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-border/30">
+                    <div className="text-[11px] text-muted-foreground font-mono">
+                      {totalItems} items
+                    </div>
+                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
+                  </div>
+                </a>
+              );
+            })}
           </div>
         )}
       </main>

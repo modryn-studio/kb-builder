@@ -119,6 +119,22 @@ input[type="text"]:focus-visible {
   outline-offset: 0;
 }
 
+/* ── Pointer cursor for all clickable elements ── */
+@layer base {
+  a,
+  button,
+  [role="button"],
+  [type="submit"],
+  [type="reset"],
+  [type="button"],
+  summary,
+  label[for],
+  select,
+  [tabindex]:not([tabindex="-1"]) {
+    cursor: pointer !important;
+  }
+}
+
 html {
   scrollbar-width: thin;
   scrollbar-color: hsl(228 10% 15%) transparent;

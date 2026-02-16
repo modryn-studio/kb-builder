@@ -19,10 +19,10 @@ export async function GET(request: Request) {
   
   // ── Auth check ──
   const key = searchParams.get("key");
-  const expectedKey = process.env.ADMIN_SECRET || process.env.CRON_SECRET || "dev-secret";
-  if (key !== expectedKey) {
+  const expectedKey = process.env.ADMIN_SECRET;
+  if (!expectedKey || key !== expectedKey) {
     return NextResponse.json(
-      { error: "Unauthorized. Use ?key=YOUR_ADMIN_SECRET" },
+      { error: "Unauthorized. Admin authentication required." },
       { status: 401 }
     );
   }

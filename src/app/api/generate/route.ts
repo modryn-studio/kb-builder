@@ -162,7 +162,6 @@ export async function POST(request: NextRequest) {
             workflows: cached.workflows.length,
             tips: cached.tips.length,
             commonMistakes: cached.commonMistakes.length,
-            coverageScore: cached.coverageScore,
           },
         });
       }
@@ -238,7 +237,6 @@ export async function POST(request: NextRequest) {
                   workflows: manual.workflows.length,
                   tips: manual.tips.length,
                   commonMistakes: manual.commonMistakes.length,
-                  coverageScore: manual.coverageScore,
                 },
                 citationCount: manual.citations.length,
                 generationTimeMs: manual.generationTimeMs,

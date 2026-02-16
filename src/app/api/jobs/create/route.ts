@@ -104,7 +104,6 @@ export async function POST(request: NextRequest) {
               workflows: cached.workflows.length,
               tips: cached.tips.length,
               commonMistakes: cached.commonMistakes.length,
-              coverageScore: cached.coverageScore,
             },
             totalCost: cached.cost.total,
             generationTimeMs: cached.generationTimeMs,
@@ -154,6 +153,14 @@ export async function POST(request: NextRequest) {
 
       // Handle fetch error (network, timeout, etc.)
       if (fetchError) {
+        // AbortError = timeout, which is expected for long-running jobs
+        // The job is already processing, so no need to retry
+        if ((fetchError as Error).name === "AbortError") {
+          console.log(`Job ${job.id} trigger timed out (expected for long jobs)`);
+          return;
+        }
+
+        // Retry on real network errors
         if (attempt < 3) {
           console.warn(`Job ${job.id} trigger error (attempt ${attempt}), retrying...`, fetchError);
           await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
