@@ -13,6 +13,7 @@ import {
   Lock,
   LogOut,
   Filter,
+  DollarSign,
 } from "lucide-react";
 
 // ──────────────────────────────────────────────
@@ -50,15 +51,28 @@ interface UserMessage {
   createdAt: string;
 }
 
+interface DonationStats {
+  totalAmount: number;
+  totalCount: number;
+  recentDonations: Array<{
+    id: string;
+    amount: number;
+    currency: string;
+    email?: string;
+    createdAt: string;
+  }>;
+}
+
 interface AdminResponse {
   stats: FeedbackStats;
   ratings: Record<string, RatingStats>;
   messages: UserMessage[];
   feedback: FeedbackEntry[];
+  donations: DonationStats;
   note: string;
 }
 
-type Tab = "overview" | "feedback" | "ratings" | "messages";
+type Tab = "overview" | "feedback" | "ratings" | "messages" | "donations";
 
 // ──────────────────────────────────────────────
 // Message Type Badge
@@ -263,7 +277,7 @@ export default function AdminFeedbackPage() {
     );
   }
 
-  const { stats, feedback, ratings, messages } = data;
+  const { stats, feedback, ratings, messages, donations } = data;
 
   const totalRatings = Object.values(ratings).reduce((acc, r) => acc + r.count, 0);
   const overallAvg = totalRatings > 0
@@ -279,6 +293,7 @@ export default function AdminFeedbackPage() {
     { id: "feedback", label: "Thumbs", count: stats.total, icon: <CheckCircle className="h-4 w-4" /> },
     { id: "ratings", label: "Ratings", count: totalRatings, icon: <Star className="h-4 w-4" /> },
     { id: "messages", label: "Messages", count: messages.length, icon: <MessageSquare className="h-4 w-4" /> },
+    { id: "donations", label: "Donations", count: donations.totalCount, icon: <DollarSign className="h-4 w-4" /> },
   ];
 
   return (
@@ -620,6 +635,72 @@ export default function AdminFeedbackPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ─── Donations Tab ─── */}
+        {activeTab === "donations" && (
+          <div className="space-y-4">
+            {/* Stats Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+                <div className="text-sm text-muted-foreground mb-1">Total Revenue</div>
+                <div className="text-3xl font-bold text-foreground">
+                  ${donations.totalAmount.toFixed(2)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">USD</div>
+              </div>
+              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+                <div className="text-sm text-muted-foreground mb-1">Total Donations</div>
+                <div className="text-3xl font-bold text-foreground">
+                  {donations.totalCount}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {donations.totalCount === 1 ? "donation" : "donations"}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Donations */}
+            <div className="bg-card rounded-xl shadow-sm border border-border">
+              <div className="p-4 border-b border-border">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Recent Donations ({donations.recentDonations.length})
+                </h2>
+              </div>
+              {donations.recentDonations.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  No donations yet.
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {donations.recentDonations.map((donation) => (
+                    <div key={donation.id} className="p-4 flex items-center justify-between hover:bg-secondary transition">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
+                            <DollarSign className="w-5 h-5 text-success" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-foreground">
+                              ${donation.amount.toFixed(2)} {donation.currency.toUpperCase()}
+                            </div>
+                            {donation.email && (
+                              <div className="text-sm text-muted-foreground">
+                                {donation.email}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(donation.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

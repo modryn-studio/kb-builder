@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { feedbackStore, getFeedbackStats } from "@/lib/feedback-store";
 import { getMessages, getAllRatings } from "@/lib/blob-persistence";
+import { getDonationStats } from "@/lib/donation-store";
 
 export const dynamic = "force-dynamic";
 
@@ -58,16 +59,18 @@ export async function GET(request: Request) {
     });
   }
 
-  // Return as JSON with stats, messages, and ratings
+  // Return as JSON with stats, messages, ratings, and donations
   const stats = await getFeedbackStats();
   const messages = getMessages();
   const ratings = getAllRatings();
+  const donations = await getDonationStats();
   
   return NextResponse.json({
     stats,
     ratings,
     messages: messages.slice().reverse(),
     feedback: safeFeedback.slice().reverse(),
+    donations,
     note: "Data persisted to Vercel Blob."
   });
 }
