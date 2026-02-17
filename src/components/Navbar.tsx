@@ -152,6 +152,15 @@ export function Navbar({ manualActions }: NavbarProps) {
                     <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-card shadow-vault overflow-hidden z-50">
                       <div className="py-2">
                         <Link
+                          href="/manuals"
+                          onClick={() => setMenuOpen(false)}
+                          className="block px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors"
+                        >
+                          <div className="font-medium">Browse Manuals</div>
+                          <div className="text-xs text-muted-foreground">Explore instruction manuals</div>
+                        </Link>
+                        <div className="my-1 border-t border-border" />
+                        <Link
                           href="/about"
                           onClick={() => setMenuOpen(false)}
                           className="block px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors"
