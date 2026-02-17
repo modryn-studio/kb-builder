@@ -14,16 +14,6 @@ export function AdminAuth({ children }: AdminAuthProps) {
   const [adminKey, setAdminKey] = useState("");
   const [error, setError] = useState("");
 
-  // Check for stored key in sessionStorage
-  useEffect(() => {
-    const stored = sessionStorage.getItem("kb_admin_key");
-    if (stored) {
-      validateKey(stored);
-    } else {
-      setIsChecking(false);
-    }
-  }, []);
-
   const validateKey = async (key: string) => {
     setIsChecking(true);
     setError("");
@@ -47,6 +37,17 @@ export function AdminAuth({ children }: AdminAuthProps) {
       setIsChecking(false);
     }
   };
+
+  // Check for stored key in sessionStorage
+  useEffect(() => {
+    const stored = sessionStorage.getItem("kb_admin_key");
+    if (stored) {
+      validateKey(stored);
+    } else {
+      setIsChecking(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJob } from "@/lib/db";
+import { getJob, deleteJob } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -30,8 +30,7 @@ export async function DELETE(
       );
     }
 
-    // Import deleteJob function
-    const { deleteJob } = await import("@/lib/db");
+    // Delete the job
     await deleteJob(id);
 
     console.log(`[DELETE ${id}] Job deleted: "${job.toolName}" (status: ${job.status})`);

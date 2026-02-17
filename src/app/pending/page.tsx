@@ -290,7 +290,9 @@ export default function PendingPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [pollingError, setPollingError] = useState<string | null>(null);
   const notifiedJobsRef = useRef<Set<string>>(new Set());
+  const errorCountRef = useRef(0);
 
   const fetchJobs = useCallback(async () => {
     const sessionId = getSessionId();
@@ -301,11 +303,19 @@ export default function PendingPage() {
 
     try {
       const response = await fetch(`/api/jobs?sessionId=${sessionId}`);
-      if (!response.ok) return;
+      if (!response.ok) {
+        throw new Error(`Failed to fetch jobs: ${response.status}`);
+      }
       const data = await response.json();
       setJobs(data.jobs ?? []);
+      errorCountRef.current = 0; // Reset on success
+      setPollingError(null);
     } catch (err) {
       console.error("Failed to fetch jobs:", err);
+      errorCountRef.current += 1;
+      if (errorCountRef.current >= 5) {
+        setPollingError("Unable to fetch jobs. Please refresh the page.");
+      }
     } finally {
       setLoading(false);
     }
@@ -332,6 +342,7 @@ export default function PendingPage() {
 
   // Polling — every 3s while active jobs exist
   useEffect(() => {
+    if (errorCountRef.current >= 5) return; // Stop polling after 5 failures
     const hasActiveJobs = jobs.some(
       (j) => j.status === "queued" || j.status === "processing"
     );
@@ -339,7 +350,8 @@ export default function PendingPage() {
 
     const interval = setInterval(fetchJobs, 3000);
     return () => clearInterval(interval);
-  }, [jobs, loading, fetchJobs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchJobs]); // Only depend on fetchJobs to avoid interval thrashing
 
   // Send browser notification when a job completes
   useEffect(() => {
