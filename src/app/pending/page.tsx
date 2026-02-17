@@ -411,13 +411,18 @@ export default function PendingPage() {
         });
 
         if (response.ok) {
+          const data = await response.json();
+          alert(`✅ Processing started!\n\n${data.message || "Job processor triggered successfully"}`);
           // Refresh jobs to see status change
           setTimeout(() => fetchJobs(), 1000);
         } else {
-          console.error("Trigger failed:", await response.text());
+          const error = await response.json();
+          alert(`❌ Failed to start processing:\n\n${error.error || "Unknown error"}\n\n${error.details || ""}`);
+          console.error("Trigger failed:", error);
         }
       } catch (err) {
         console.error("Trigger failed:", err);
+        alert(`❌ Network error: Failed to trigger job processing. Check console for details.`);
       }
     },
     [fetchJobs]
