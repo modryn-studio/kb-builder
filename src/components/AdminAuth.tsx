@@ -1,65 +1,37 @@
 "use client";
 
-import { useState, useEffect, ReactNode } from "react";
-import { Lock, Loader2 } from "lucide-react";
+import { useState, ReactNode } from "react";
+import { Lock, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAdmin } from "@/contexts/AdminContext";
 
 interface AdminAuthProps {
   children: ReactNode;
 }
 
 export function AdminAuth({ children }: AdminAuthProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
+  const { isAuthenticated, isChecking, authenticate, logout } = useAdmin();
   const [adminKey, setAdminKey] = useState("");
   const [error, setError] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
 
-  const validateKey = async (key: string) => {
-    setIsChecking(true);
-    setError("");
-
-    try {
-      // Test the key against the admin API
-      const response = await fetch(`/api/admin/feedback?key=${encodeURIComponent(key)}`);
-      
-      if (response.ok) {
-        sessionStorage.setItem("kb_admin_key", key);
-        setIsAuthenticated(true);
-      } else {
-        sessionStorage.removeItem("kb_admin_key");
-        setIsAuthenticated(false);
-        setError("Invalid admin key");
-      }
-    } catch (err) {
-      setError("Failed to validate key");
-      setIsAuthenticated(false);
-    } finally {
-      setIsChecking(false);
-    }
-  };
-
-  // Check for stored key in sessionStorage
-  useEffect(() => {
-    const stored = sessionStorage.getItem("kb_admin_key");
-    if (stored) {
-      validateKey(stored);
-    } else {
-      setIsChecking(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminKey.trim()) {
-      validateKey(adminKey.trim());
+      setIsValidating(true);
+      setError("");
+      const success = await authenticate(adminKey.trim());
+      setIsValidating(false);
+      if (!success) {
+        setError("Invalid admin key");
+      }
     }
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem("kb_admin_key");
-    setIsAuthenticated(false);
+    logout();
     setAdminKey("");
+    setError("");
   };
 
   // Checking state
@@ -119,9 +91,9 @@ export function AdminAuth({ children }: AdminAuthProps) {
                 type="submit"
                 variant="vault"
                 className="w-full"
-                disabled={!adminKey.trim() || isChecking}
+                disabled={!adminKey.trim() || isValidating}
               >
-                {isChecking ? (
+                {isValidating ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Verifying...
@@ -148,24 +120,19 @@ export function AdminAuth({ children }: AdminAuthProps) {
   // Authenticated - render children with logout option
   return (
     <>
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed bottom-6 left-6 z-50">
         <Button
           variant="vault-outline"
           size="sm"
           onClick={handleLogout}
-          className="gap-2"
+          className="gap-2 shadow-lg"
+          title="Logout from admin dashboard"
         >
-          <Lock className="h-3.5 w-3.5" />
-          Logout
+          <LogOut className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Logout</span>
         </Button>
       </div>
       {children}
     </>
   );
-}
-
-// Hook to get the stored admin key
-export function useAdminKey(): string | null {
-  if (typeof window === "undefined") return null;
-  return sessionStorage.getItem("kb_admin_key");
 }
