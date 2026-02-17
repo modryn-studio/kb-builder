@@ -151,15 +151,16 @@ export function Navbar({ manualActions }: NavbarProps) {
                   {menuOpen && (
                     <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-card shadow-vault overflow-hidden z-50">
                       <div className="py-2">
+                        {/* Browse Manuals - mobile only (desktop has it in header) */}
                         <Link
                           href="/manuals"
                           onClick={() => setMenuOpen(false)}
-                          className="block px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors"
+                          className="block px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors sm:hidden"
                         >
                           <div className="font-medium">Browse Manuals</div>
                           <div className="text-xs text-muted-foreground">Explore instruction manuals</div>
                         </Link>
-                        <div className="my-1 border-t border-border" />
+                        <div className="my-1 border-t border-border sm:hidden" />
                         <Link
                           href="/about"
                           onClick={() => setMenuOpen(false)}
