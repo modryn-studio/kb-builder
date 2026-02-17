@@ -113,6 +113,19 @@ export async function getJob(id: string): Promise<GenerationJob | undefined> {
   return jobs.get(id);
 }
 
+/** Check if a job already exists for this slug (queued or processing). */
+export async function findExistingJob(slug: string): Promise<GenerationJob | undefined> {
+  await ensureHydrated();
+  
+  for (const job of jobs.values()) {
+    if (job.slug === slug && (job.status === "queued" || job.status === "processing")) {
+      return job;
+    }
+  }
+  
+  return undefined;
+}
+
 export async function listJobs(sessionId: string, statuses?: JobStatus[]): Promise<JobSummary[]> {
   await ensureHydrated();
   const results: JobSummary[] = [];
@@ -147,6 +160,7 @@ export async function findNextJob(): Promise<GenerationJob | undefined> {
   const STUCK_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
   let oldest: GenerationJob | undefined;
+  let hasResetStuckJobs = false;
 
   for (const job of jobs.values()) {
     // Queued jobs
@@ -161,13 +175,20 @@ export async function findNextJob(): Promise<GenerationJob | undefined> {
       const elapsed = now - new Date(job.startedAt).getTime();
       if (elapsed > STUCK_THRESHOLD_MS) {
         // Reset to queued so it gets re-processed
-        job.status = "queued";
-        job.startedAt = undefined;
-        if (!oldest || new Date(job.createdAt).getTime() < new Date(oldest.createdAt).getTime()) {
-          oldest = job;
+        const updated = { ...job, status: "queued" as JobStatus, startedAt: undefined };
+        jobs.set(job.id, updated);
+        hasResetStuckJobs = true;
+        
+        if (!oldest || new Date(updated.createdAt).getTime() < new Date(oldest.createdAt).getTime()) {
+          oldest = updated;
         }
       }
     }
+  }
+
+  // Persist if we reset any stuck jobs
+  if (hasResetStuckJobs) {
+    persistAll();
   }
 
   return oldest;

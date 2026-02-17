@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
+    "dev:clean": "rm -rf .next && npm run dev",
     "build": "next build",
+    "build:check": "next build && next lint",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "git push origin main",
+    "deploy:check": "npm run build && git push origin main"
   },
   "dependencies": {
     "@perplexity-ai/perplexity_ai": "^0.25.0",

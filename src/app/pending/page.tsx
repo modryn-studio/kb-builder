@@ -76,9 +76,10 @@ const EXPECTED_GENERATION_MS = 150_000;
 // Job Card Component
 // ──────────────────────────────────────────────
 
-function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
+function JobCard({ job, onRetry, onTrigger }: { job: Job; onRetry: (job: Job) => void; onTrigger: (job: Job) => void }) {
   const [copied, setCopied] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [queuedTime, setQueuedTime] = useState(0);
 
   // Live elapsed timer for processing jobs
   useEffect(() => {
@@ -93,6 +94,20 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
 
     return () => clearInterval(interval);
   }, [job.status, job.startedAt]);
+
+  // Track how long job has been queued
+  useEffect(() => {
+    if (job.status !== "queued") return;
+
+    const created = new Date(job.createdAt).getTime();
+    setQueuedTime(Date.now() - created);
+
+    const interval = setInterval(() => {
+      setQueuedTime(Date.now() - created);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [job.status, job.createdAt]);
 
   const handleCopy = () => {
     if (job.shareableUrl) {
@@ -230,6 +245,24 @@ function JobCard({ job, onRetry }: { job: Job; onRetry: (job: Job) => void }) {
           </Button>
         </div>
       )}
+
+      {/* Actions for stuck queued jobs */}
+      {job.status === "queued" && queuedTime > 30000 && (
+        <div className="mt-3">
+          <Button
+            variant="vault-outline"
+            size="sm"
+            onClick={() => onTrigger(job)}
+            className="border-primary/30"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Force Start
+          </Button>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Queued for {formatTime(queuedTime)} · Click to manually trigger processing
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -342,6 +375,27 @@ export default function PendingPage() {
     [fetchJobs]
   );
 
+  const handleTrigger = useCallback(
+    async (job: Job) => {
+      try {
+        const response = await fetch(`/api/jobs/${job.id}/trigger`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (response.ok) {
+          // Refresh jobs to see status change
+          setTimeout(() => fetchJobs(), 1000);
+        } else {
+          console.error("Trigger failed:", await response.text());
+        }
+      } catch (err) {
+        console.error("Trigger failed:", err);
+      }
+    },
+    [fetchJobs]
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -387,7 +441,7 @@ export default function PendingPage() {
         ) : (
           <div className="space-y-3">
             {jobs.map((job) => (
-              <JobCard key={job.id} job={job} onRetry={handleRetry} />
+              <JobCard key={job.id} job={job} onRetry={handleRetry} onTrigger={handleTrigger} />
             ))}
           </div>
         )}

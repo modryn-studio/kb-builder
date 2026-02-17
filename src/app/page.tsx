@@ -65,8 +65,8 @@ export default function Home() {
         return;
       }
 
-      // New job created - redirect to job tracking page
-      if (data.id && data.status === "queued") {
+      // Job created or deduplicated - redirect to job tracking page
+      if (data.id && (data.status === "queued" || data.status === "processing")) {
         router.push(`/job/${data.id}`);
         return;
       }

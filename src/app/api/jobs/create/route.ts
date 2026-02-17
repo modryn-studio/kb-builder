@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createJob, checkJobRateLimit, getQueuePosition } from "@/lib/db";
+import { createJob, checkJobRateLimit, getQueuePosition, findExistingJob } from "@/lib/db";
 import { getLatestManual } from "@/lib/storage";
 import { sanitizeToolName, sanitizeSlug, isValidSlug } from "@/lib/utils";
 import { isValidSessionId } from "@/lib/session";
@@ -112,6 +112,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Check for existing queued/processing job (deduplication) ──
+    const existingJob = await findExistingJob(effectiveSlug);
+    if (existingJob) {
+      console.log(`[JOB] Returning existing job ${existingJob.id} for ${finalToolName} (status: ${existingJob.status})`);
+      const position = await getQueuePosition(existingJob.id);
+      return NextResponse.json({
+        id: existingJob.id,
+        tool: existingJob.toolName,
+        slug: existingJob.slug,
+        status: existingJob.status,
+        createdAt: existingJob.createdAt,
+        position,
+        deduplicated: true,
+      });
+    }
+
     // ── Create job ──
     const job = await createJob({
       toolName: finalToolName,
@@ -121,70 +137,48 @@ export async function POST(request: NextRequest) {
 
     const position = await getQueuePosition(job.id);
 
-    // ── Fire-and-forget: trigger processing with retry ──
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const processUrl = `${baseUrl}/api/jobs/${job.id}/process`;
+    // ── Trigger queue processor (reliable queue-based approach) ──
+    // Instead of calling individual job endpoints, trigger the cron processor
+    // which picks the next job from the queue and processes it reliably.
+    const host = request.headers.get("host");
+    const protocol = request.headers.get("x-forwarded-proto") || "http";
+    const baseUrl = host ? `${protocol}://${host}` : "http://localhost:3000";
+    const cronUrl = `${baseUrl}/api/cron/process`;
 
-    const triggerProcessing = async (attempt = 1): Promise<void> => {
-      let timeout: NodeJS.Timeout | undefined;
-      let response: Response | null = null;
-      let fetchError: unknown = null;
+    console.log(`[JOB ${job.id}] Created and queued. Triggering processor at: ${cronUrl}`);
 
+    // Trigger the queue processor asynchronously
+    // The processor will pick up this job (or the next queued job)
+    // This is more reliable than fire-and-forget to individual endpoints
+    const triggerProcessor = async (): Promise<void> => {
       try {
-        const controller = new AbortController();
-        timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-        response = await fetch(processUrl, {
+        const response = await fetch(cronUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-cron-secret": process.env.CRON_SECRET || "dev-secret",
           },
-          signal: controller.signal,
+          signal: AbortSignal.timeout(8000), // 8s timeout (processor will continue in background)
         });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`[JOB ${job.id}] Processor triggered:`, result);
+        } else {
+          console.warn(`[JOB ${job.id}] Processor trigger returned ${response.status}`);
+        }
       } catch (err) {
-        fetchError = err;
-      } finally {
-        // Ensure timeout is always cleared
-        if (timeout !== undefined) {
-          clearTimeout(timeout);
+        // Timeout is expected for long-running jobs - the processor continues working
+        if ((err as Error).name === "AbortError") {
+          console.log(`[JOB ${job.id}] Processor trigger timed out (job is processing in background)`);
+        } else {
+          console.error(`[JOB ${job.id}] Processor trigger failed:`, err);
         }
-      }
-
-      // Handle fetch error (network, timeout, etc.)
-      if (fetchError) {
-        // AbortError = timeout, which is expected for long-running jobs
-        // The job is already processing, so no need to retry
-        if ((fetchError as Error).name === "AbortError") {
-          console.log(`Job ${job.id} trigger timed out (expected for long jobs)`);
-          return;
-        }
-
-        // Retry on real network errors
-        if (attempt < 3) {
-          console.warn(`Job ${job.id} trigger error (attempt ${attempt}), retrying...`, fetchError);
-          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-          return triggerProcessing(attempt + 1);
-        }
-        console.error(`Job ${job.id} trigger failed after ${attempt} attempts:`, fetchError);
-        return;
-      }
-
-      // Handle non-ok response
-      if (response && !response.ok) {
-        if (attempt < 3) {
-          console.warn(`Job ${job.id} trigger failed (attempt ${attempt}), retrying...`);
-          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-          return triggerProcessing(attempt + 1);
-        }
-        console.error(`Job ${job.id} trigger failed after ${attempt} attempts`);
       }
     };
 
-    // Fire-and-forget with retry
-    triggerProcessing().catch((err) => {
-      console.error(`Unexpected error triggering job ${job.id}:`, err);
-    });
+    // Trigger asynchronously without blocking response
+    triggerProcessor();
 
     return NextResponse.json(
       {
