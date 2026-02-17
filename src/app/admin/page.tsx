@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { AdminAuth } from "@/components/AdminAuth";
 import { 
   MessageSquare, 
   Cog, 
@@ -15,7 +16,8 @@ import {
 
 export default function AdminPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <AdminAuth>
+      <div className="min-h-screen bg-background">
       <Navbar />
 
       <main className="mx-auto max-w-5xl px-6 pt-24 pb-12">
@@ -159,5 +161,6 @@ export default function AdminPage() {
 
       <Footer />
     </div>
+    </AdminAuth>
   );
 }

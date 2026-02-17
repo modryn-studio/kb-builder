@@ -153,6 +153,16 @@ export async function updateJob(id: string, updates: Partial<GenerationJob>): Pr
   return updated;
 }
 
+export async function deleteJob(id: string): Promise<boolean> {
+  await ensureHydrated();
+  const exists = jobs.has(id);
+  if (exists) {
+    jobs.delete(id);
+    persistAll();
+  }
+  return exists;
+}
+
 /** Find the oldest queued job, or a stuck processing job (>5 min). */
 export async function findNextJob(): Promise<GenerationJob | undefined> {
   await ensureHydrated();

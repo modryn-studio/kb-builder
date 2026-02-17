@@ -10,6 +10,7 @@ import {
   Copy,
   Check,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
@@ -76,7 +77,12 @@ const EXPECTED_GENERATION_MS = 150_000;
 // Job Card Component
 // ──────────────────────────────────────────────
 
-function JobCard({ job, onRetry, onTrigger }: { job: Job; onRetry: (job: Job) => void; onTrigger: (job: Job) => void }) {
+function JobCard({ job, onRetry, onTrigger, onDelete }: { 
+  job: Job; 
+  onRetry: (job: Job) => void; 
+  onTrigger: (job: Job) => void;
+  onDelete: (job: Job) => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [queuedTime, setQueuedTime] = useState(0);
@@ -248,7 +254,7 @@ function JobCard({ job, onRetry, onTrigger }: { job: Job; onRetry: (job: Job) =>
 
       {/* Actions for stuck queued jobs */}
       {job.status === "queued" && queuedTime > 30000 && (
-        <div className="mt-3">
+        <div className="mt-3 flex items-center gap-2">
           <Button
             variant="vault-outline"
             size="sm"
@@ -258,8 +264,17 @@ function JobCard({ job, onRetry, onTrigger }: { job: Job; onRetry: (job: Job) =>
             <RefreshCw className="h-3.5 w-3.5" />
             Force Start
           </Button>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Queued for {formatTime(queuedTime)} · Click to manually trigger processing
+          <Button
+            variant="vault-outline"
+            size="sm"
+            onClick={() => onDelete(job)}
+            className="border-destructive/30 text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Queued for {formatTime(queuedTime)}
           </p>
         </div>
       )}
@@ -396,6 +411,32 @@ export default function PendingPage() {
     [fetchJobs]
   );
 
+  const handleDelete = useCallback(
+    async (job: Job) => {
+      if (!confirm(`Delete job for "${job.toolName}"? This cannot be undone.`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/jobs/${job.id}/delete`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          // Refresh jobs list
+          fetchJobs();
+        } else {
+          const error = await response.json();
+          alert(error.error || "Failed to delete job");
+        }
+      } catch (err) {
+        console.error("Delete failed:", err);
+        alert("Failed to delete job");
+      }
+    },
+    [fetchJobs]
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -441,7 +482,7 @@ export default function PendingPage() {
         ) : (
           <div className="space-y-3">
             {jobs.map((job) => (
-              <JobCard key={job.id} job={job} onRetry={handleRetry} onTrigger={handleTrigger} />
+              <JobCard key={job.id} job={job} onRetry={handleRetry} onTrigger={handleTrigger} onDelete={handleDelete} />
             ))}
           </div>
         )}

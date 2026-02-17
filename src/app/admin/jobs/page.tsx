@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AdminAuth } from "@/components/AdminAuth";
 
 interface Job {
   id: string;
@@ -65,7 +66,8 @@ export default function AdminJobsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <AdminAuth>
+      <div className="min-h-screen bg-background">
       <Navbar />
 
       <main className="mx-auto max-w-4xl px-6 pt-24 pb-12">
@@ -140,5 +142,6 @@ export default function AdminJobsPage() {
 
       <Footer />
     </div>
+    </AdminAuth>
   );
 }

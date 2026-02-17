@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { AdminAuth } from "@/components/AdminAuth";
 import {
   CheckCircle,
   XCircle,
@@ -297,7 +298,8 @@ export default function AdminFeedbackPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <AdminAuth>
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
@@ -704,6 +706,7 @@ export default function AdminFeedbackPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </AdminAuth>
   );
 }
