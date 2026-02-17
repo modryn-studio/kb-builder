@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminAuth } from "@/components/AdminAuth";
+import { useAdmin } from "@/contexts/AdminContext";
 
 interface Job {
   id: string;
@@ -18,6 +19,7 @@ interface Job {
 }
 
 export default function AdminJobsPage() {
+  const { isAuthenticated } = useAdmin();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
@@ -39,11 +41,11 @@ export default function AdminJobsPage() {
     setMessage("");
 
     try {
-      const response = await fetch("/api/cron/process", {
+      const adminKey = sessionStorage.getItem("kb_admin_key");
+      const response = await fetch(`/api/admin/trigger-processor?key=${encodeURIComponent(adminKey || "")}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-cron-secret": prompt("Enter CRON_SECRET:") || "dev-secret",
         },
       });
 
