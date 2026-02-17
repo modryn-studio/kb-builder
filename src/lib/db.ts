@@ -163,6 +163,37 @@ export async function deleteJob(id: string): Promise<boolean> {
   return exists;
 }
 
+/** Force delete job (admin only - no status check). */
+export async function forceDeleteJob(id: string): Promise<boolean> {
+  await ensureHydrated();
+  const exists = jobs.has(id);
+  if (exists) {
+    jobs.delete(id);
+    persistAll();
+  }
+  return exists;
+}
+
+/** Get all jobs (admin only - no session filter). */
+export async function getAllJobs(): Promise<JobSummary[]> {
+  await ensureHydrated();
+  const results = Array.from(jobs.values());
+  
+  // Sort by createdAt descending (newest first)
+  return results.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+/** Delete all jobs (admin only). */
+export async function deleteAllJobs(): Promise<number> {
+  await ensureHydrated();
+  const count = jobs.size;
+  jobs.clear();
+  persistAll();
+  return count;
+}
+
 /** Find the oldest queued job, or a stuck processing job (>5 min). */
 export async function findNextJob(): Promise<GenerationJob | undefined> {
   await ensureHydrated();
