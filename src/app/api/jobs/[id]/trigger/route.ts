@@ -40,12 +40,21 @@ export async function POST(
     console.log(`[TRIGGER ${id}] Manually triggering queue processor at: ${cronUrl}`);
 
     // Trigger the queue processor which will pick up this job
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      console.error("CRON_SECRET is not configured");
+      return NextResponse.json(
+        { error: "Server misconfiguration: CRON_SECRET not set" },
+        { status: 500 }
+      );
+    }
+    
     try {
       const response = await fetch(cronUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-cron-secret": process.env.CRON_SECRET || "dev-secret",
+          "x-cron-secret": cronSecret,
         },
         signal: AbortSignal.timeout(8000), // 8s timeout
       });

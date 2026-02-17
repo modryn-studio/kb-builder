@@ -11,7 +11,16 @@ export async function POST(request: NextRequest) {
     // ── Auth check ──
     const cronSecret = request.headers.get("x-cron-secret")
       || request.headers.get("authorization")?.replace("Bearer ", "");
-    const expectedSecret = process.env.CRON_SECRET || "dev-secret";
+    const expectedSecret = process.env.CRON_SECRET;
+    
+    if (!expectedSecret) {
+      console.error("CRON_SECRET is not configured in environment variables");
+      return NextResponse.json(
+        { error: "Server misconfiguration: CRON_SECRET not set" },
+        { status: 500 }
+      );
+    }
+    
     if (cronSecret !== expectedSecret) {
       return NextResponse.json(
         { error: "Unauthorized" },

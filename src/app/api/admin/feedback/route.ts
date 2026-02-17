@@ -83,7 +83,16 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const key = searchParams.get("key");
-  const expectedKey = process.env.ADMIN_SECRET || process.env.CRON_SECRET || "dev-secret";
+  const expectedKey = process.env.ADMIN_SECRET;
+  
+  if (!expectedKey) {
+    console.error("ADMIN_SECRET is not configured");
+    return NextResponse.json(
+      { error: "Server misconfiguration: ADMIN_SECRET not set" },
+      { status: 500 }
+    );
+  }
+  
   if (key !== expectedKey) {
     return NextResponse.json(
       { error: "Unauthorized" },

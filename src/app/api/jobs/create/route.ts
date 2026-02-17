@@ -152,11 +152,18 @@ export async function POST(request: NextRequest) {
     // This is more reliable than fire-and-forget to individual endpoints
     const triggerProcessor = async (): Promise<void> => {
       try {
+        const cronSecret = process.env.CRON_SECRET;
+        if (!cronSecret) {
+          console.error("[JOB CREATE] CRON_SECRET not configured - job will wait for cron");
+          // Job is created but won't auto-process (will wait for cron or manual trigger)
+          return;
+        }
+        
         const response = await fetch(cronUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-cron-secret": process.env.CRON_SECRET || "dev-secret",
+            "x-cron-secret": cronSecret,
           },
           signal: AbortSignal.timeout(8000), // 8s timeout (processor will continue in background)
         });

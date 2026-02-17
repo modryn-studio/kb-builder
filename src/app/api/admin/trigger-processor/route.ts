@@ -29,11 +29,20 @@ export async function POST(request: NextRequest) {
     console.log(`[ADMIN TRIGGER] Triggering queue processor at: ${cronUrl}`);
 
     // Trigger the queue processor (use server-side CRON_SECRET)
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      console.error("CRON_SECRET is not configured");
+      return NextResponse.json(
+        { error: "Server misconfiguration: CRON_SECRET not set" },
+        { status: 500 }
+      );
+    }
+    
     const response = await fetch(cronUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-cron-secret": process.env.CRON_SECRET || "dev-secret",
+        "x-cron-secret": cronSecret,
       },
       signal: AbortSignal.timeout(10000), // 10s timeout
     });
